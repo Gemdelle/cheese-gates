@@ -12,6 +12,12 @@ PLAYER_SIZE = (140, 150)  # (w, h) for both standing/moving sprites
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
         super().__init__()
+        # Animation variables
+        self.animation_time = 0
+        self.y_scale = 1.0
+        self.moving_animation_scale_range = 0.1  # Scale will oscillate between 0.9 and 1.1
+        self.moving_animation_speed = 4.0  # Oscillations per second
+
         # Load base images (assumed to face RIGHT by default)
         standing = pygame.image.load("character-standing.png").convert_alpha()
         moving = pygame.image.load("character-moving.png").convert_alpha()
@@ -53,6 +59,14 @@ class Player(pygame.sprite.Sprite):
             dir = dir.normalize()
             self.last_dir = dir
             self.pos += dir * SPEED * dt
+            
+            # Update animation time and calculate Y scale
+            self.animation_time += dt
+            self.y_scale = 1.0 + self.moving_animation_scale_range * math.sin(self.animation_time * self.moving_animation_speed * 2 * math.pi)
+        else:
+            # Reset animation when not moving
+            self.animation_time = 0
+            self.y_scale = 1.0
 
         # Switch base image depending on movement state
         self.base_image = self.original_moving if moved else self.original_standing
@@ -62,9 +76,15 @@ class Player(pygame.sprite.Sprite):
         self.pos.x = max(bounds_rect.left + half_w, min(self.pos.x, bounds_rect.right - half_w))
         self.pos.y = max(bounds_rect.top + half_h,  min(self.pos.y, bounds_rect.bottom - half_h))
 
-        # Rotate to face last_dir
+        # Rotate to face last_dir and apply Y-scale
         angle_deg = -math.degrees(math.atan2(self.last_dir.y, self.last_dir.x)) + self.angle_offset_deg
-        rotated = pygame.transform.rotozoom(self.base_image, angle_deg, 1.0)
+        
+        # First scale the image in Y direction
+        scaled = pygame.transform.smoothscale(self.base_image, 
+            (self.base_image.get_width(), int(self.base_image.get_height() * self.y_scale)))
+        
+        # Then rotate the scaled image
+        rotated = pygame.transform.rotozoom(scaled, angle_deg, 1.0)
 
         old_center = self.rect.center
         self.image = rotated
