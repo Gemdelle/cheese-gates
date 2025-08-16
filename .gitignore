@@ -1,0 +1,49 @@
+# Archivos de bytecode y cachés
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Archivos de entorno virtual
+venv/
+ENV/
+env/
+.venv/
+
+# Archivos de configuración de editores/IDEs
+.vscode/
+.idea/
+*.swp
+
+# Archivos de dependencias compiladas
+*.so
+*.dll
+*.dylib
+
+# Archivos de logs y bases de datos temporales
+*.log
+*.sqlite3
+*.db
+
+# Archivos de pruebas
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# Archivos generados por herramientas de documentación
+docs/_build/
+
+# Distribución y empaquetado
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Configuración de Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
