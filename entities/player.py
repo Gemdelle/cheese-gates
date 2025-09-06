@@ -2,7 +2,7 @@ import math
 import pygame
 
 SPEED = 260.0  # px/s
-PLAYER_SIZE = (70, 75)  # (w, h) for both standing/moving sprites - 50% del tamaño original
+PLAYER_SIZE = (100, 105)  # (w, h) for both standing/moving sprites - 50% del tamaño original
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
@@ -32,7 +32,7 @@ class Player(pygame.sprite.Sprite):
         # If your art's default orientation isn't RIGHT, tweak this:
         # e.g., looks UP by default → set to -90; DOWN → +90; LEFT → 180
         self.angle_offset_deg = 0
-        
+
         # Stone interaction
         self.carried_stone = None
         self.interaction_radius = 30
@@ -58,7 +58,7 @@ class Player(pygame.sprite.Sprite):
             dir = dir.normalize()
             self.last_dir = dir
             self.pos += dir * SPEED * dt
-            
+
             # Update animation time and calculate Y scale
             self.animation_time += dt
             self.y_scale = 1.0 + self.moving_animation_scale_range * math.sin(self.animation_time * self.moving_animation_speed * 2 * math.pi)
@@ -75,37 +75,46 @@ class Player(pygame.sprite.Sprite):
         self.pos.x = max(bounds_rect.left + half_w, min(self.pos.x, bounds_rect.right - half_w))
         self.pos.y = max(bounds_rect.top + half_h,  min(self.pos.y, bounds_rect.bottom - half_h))
 
-        # Rotate to face last_dir and apply Y-scale
-        angle_deg = -math.degrees(math.atan2(self.last_dir.y, self.last_dir.x)) + self.angle_offset_deg
-        
-        # First scale the image in Y direction
-        scaled = pygame.transform.smoothscale(self.base_image, 
-            (self.base_image.get_width(), int(self.base_image.get_height() * self.y_scale)))
-        
-        # Then rotate the scaled image
-        rotated = pygame.transform.rotozoom(scaled, angle_deg, 1.0)
+        # Si mira estrictamente a la izquierda (A), flip horizontal
+        flip_only_left = (self.last_dir.x < 0) and (abs(self.last_dir.y) < 1e-6)
+
+        frame = self.base_image
+        if flip_only_left:
+            # Flip horizontal sin rotación
+            frame = pygame.transform.flip(frame, True, False)
+            # Escala vertical (squash & stretch) para la animación al caminar
+            scaled = pygame.transform.smoothscale(
+                frame,
+                (frame.get_width(), int(frame.get_height() * self.y_scale))
+            )
+            rotated = scaled  # sin rotación
+        else:
+            # Rotación normal según la dirección
+            angle_deg = -math.degrees(math.atan2(self.last_dir.y, self.last_dir.x)) + self.angle_offset_deg
+            # Primero escala vertical
+            scaled = pygame.transform.smoothscale(
+                frame,
+                (frame.get_width(), int(frame.get_height() * self.y_scale))
+            )
+            # Luego rota
+            rotated = pygame.transform.rotozoom(scaled, angle_deg, 1.0)
 
         old_center = self.rect.center
         self.image = rotated
         self.rect = self.image.get_rect(center=old_center)
         self.rect.center = (self.pos.x, self.pos.y)
-        
-        # Update carried stone position
-        if self.carried_stone:
-            # Offset the stone slightly in front of the player
-            offset = self.last_dir * 30
-            self.carried_stone.pos = self.pos + offset
-            
+
+
     def can_pickup_stone(self, stone):
         """Verificar si el jugador puede recoger una piedra"""
         if self.carried_stone is not None:
             return False  # Ya lleva una piedra
         if stone.is_carried:
             return False  # La piedra ya está siendo llevada
-            
+
         distance = pygame.Vector2(self.pos).distance_to(stone.pos)
         return distance <= self.interaction_radius
-        
+
     def pickup_stone(self, stone):
         """Recoger una piedra"""
         if self.can_pickup_stone(stone):
@@ -113,28 +122,28 @@ class Player(pygame.sprite.Sprite):
             stone.pickup()
             return True
         return False
-        
+
     def can_drop_stone(self):
         """Verificar si el jugador puede soltar la piedra que lleva"""
         return self.carried_stone is not None
-        
+
     def drop_stone(self, drop_zone=None):
         """Soltar la piedra que lleva"""
         if not self.can_drop_stone():
             return False
-            
+
         stone = self.carried_stone
         self.carried_stone = None
-        
+
         if drop_zone and drop_zone.can_accept_stone():
             # Colocar en la zona de drop
             drop_zone.add_stone(stone)
         else:
             # Soltar en el lugar actual
             stone.place_at(self.pos)
-            
+
         return True
-        
+
     def get_interaction_rect(self):
         """Obtener el rectángulo de interacción del jugador"""
         return pygame.Rect(

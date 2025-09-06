@@ -15,7 +15,7 @@ class GameScreen(Screen):
         self.level_complete = False
         
         # Background (scaled if needed)
-        background_raw = pygame.image.load("background.jpg").convert()
+        background_raw = pygame.image.load("level-bg.png").convert()
         if background_raw.get_width() != game.WIDTH or background_raw.get_height() != game.HEIGHT:
             self.background = pygame.transform.smoothscale(background_raw, (game.WIDTH, game.HEIGHT))
         else:
@@ -45,7 +45,7 @@ class GameScreen(Screen):
             self.all_sprites.add(stone)
             
         # Create level text
-        self.font = pygame.font.Font(None, 36)
+        self.font = pygame.font.Font("font/BlackCastleMF.ttf", 36)
         self.level_text = self.font.render(f"Level {level}", True, (255, 255, 255))
         self.level_text_rect = self.level_text.get_rect(topleft=(20, 20))
         
@@ -55,55 +55,58 @@ class GameScreen(Screen):
     def setup_game_zones(self):
         """Definir las zonas del juego basadas en la descripción"""
         # Zona azul donde se puede mover el ratoncito (basada en la imagen)
-        self.playable_area = pygame.Rect(120, 150, 1680, 780)
+        self.playable_area = pygame.Rect(120, 150, 1680, 800)
         
         # Zona superior izquierda para piedras (stones area)
-        self.stones_area = pygame.Rect(120, 150, 400, 200)
+        self.stones_area = pygame.Rect(120, 150, 600, 150)
         
         # Zona izquierda para inputs (input zones)
-        self.input_area = pygame.Rect(120, 400, 200, 400)
+        self.input_area = pygame.Rect(120, 300, 300, 700)
         
         # Zona central para el circuito (no accesible al jugador)
         self.circuit_area = pygame.Rect(600, 300, 600, 400)
         
         # Zona derecha para el queso (reward area)
         self.reward_area = pygame.Rect(1400, 400, 200, 200)
-        
+
     def setup_stones(self):
         """Crear las piedras con diferentes pesos"""
         self.stones = []
         stone_weights = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-        
-        # Distribuir las piedras en la zona de piedras
-        stones_per_row = 4
+
+        # Ahora 6 columnas por fila, 2 filas
+        stones_per_row = 6
+        num_rows = 2
+
         stone_spacing_x = self.stones_area.width // stones_per_row
-        stone_spacing_y = self.stones_area.height // 3
-        
+        stone_spacing_y = self.stones_area.height // num_rows
+
         for i, weight in enumerate(stone_weights):
             row = i // stones_per_row
             col = i % stones_per_row
-            
+
             x = self.stones_area.left + stone_spacing_x * col + stone_spacing_x // 2
             y = self.stones_area.top + stone_spacing_y * row + stone_spacing_y // 2
-            
+
             stone = Stone(weight, (x, y))
             self.stones.append(stone)
-            
+
+
     def setup_input_zones(self):
         """Crear las zonas de input para las piedras"""
         self.input_zones = []
-        
+
         # Crear 6 zonas de input (basado en la imagen del circuito)
         num_inputs = 6
-        input_spacing = self.input_area.height // (num_inputs + 1)
-        
+        input_spacing = 100
+
         for i in range(num_inputs):
             x = self.input_area.centerx
             y = self.input_area.top + input_spacing * (i + 1)
-            
+
             input_zone = InputZone((x, y), i + 1)
             self.input_zones.append(input_zone)
-            
+
     def setup_circuit(self):
         """Crear el circuito lógico"""
         circuit_center = (self.circuit_area.centerx, self.circuit_area.centery)
@@ -196,8 +199,8 @@ class GameScreen(Screen):
         
         # Dibujar zonas de debug (temporal para visualización)
         pygame.draw.rect(self.screen, (0, 255, 255), self.playable_area, 2)
-        pygame.draw.rect(self.screen, (255, 255, 0), self.stones_area, 2)
-        pygame.draw.rect(self.screen, (0, 255, 0), self.input_area, 2)
+        # pygame.draw.rect(self.screen, (255, 255, 0), self.stones_area, 2)
+        # pygame.draw.rect(self.screen, (0, 255, 0), self.input_area, 2)
         pygame.draw.rect(self.screen, (255, 0, 0), self.circuit_area, 2)
         pygame.draw.rect(self.screen, (255, 0, 255), self.reward_area, 2)
         
@@ -230,7 +233,7 @@ class GameScreen(Screen):
             
     def draw_player_info(self):
         """Dibujar información sobre el estado del jugador"""
-        info_font = pygame.font.Font(None, 24)
+        info_font = pygame.font.Font("font/BlackCastleMF.ttf", 24)
         y_offset = 70
         
         if self.player.carried_stone:

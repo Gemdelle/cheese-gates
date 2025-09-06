@@ -12,116 +12,115 @@ class Cheese(pygame.sprite.Sprite):
         self.pos = pygame.Vector2(pos)
         self.is_accessible = False
         self.collected = False
-        
+
         # Animación del queso
         self.animation_time = 0
         self.float_amplitude = 10  # Amplitud del movimiento flotante
-        self.float_speed = 2.0     # Velocidad de la animación
+        self.float_speed = 1     # Velocidad de la animación
         self.glow_time = 0
-        
+
         # Crear imagen del queso
         self.size = 60
         self.create_cheese_image()
-        
-        self.rect = self.image.get_rect(center=pos)
-        
+
+        self.rect = self.cage_img.get_rect(center=pos)  # El rect sigue la jaula (fija)
+
         # Zona de acceso (área donde el jugador puede recoger el queso)
         self.access_radius = 40
-        
+
+        # Fuente del cartel (podés cambiar por tu .ttf si querés)
+        self._ui_font = pygame.font.Font("font/BlackCastleMF.ttf", 24)
+
     def create_cheese_image(self):
-        """Crear la imagen del queso"""
-        self.image = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
-        
-        # Color del queso
-        cheese_color = (255, 255, 0) if self.is_accessible else (150, 150, 150)
-        hole_color = (200, 200, 0) if self.is_accessible else (100, 100, 100)
-        
-        # Dibujar el queso (forma de triángulo/cuña)
-        points = [
-            (self.size // 4, self.size - 5),           # Esquina inferior izquierda
-            (self.size - 5, self.size - 5),            # Esquina inferior derecha
-            (self.size // 2, 5)                        # Punto superior
-        ]
-        pygame.draw.polygon(self.image, cheese_color, points)
-        pygame.draw.polygon(self.image, (0, 0, 0), points, 2)
-        
-        # Agregar agujeros del queso
-        holes = [
-            (self.size // 2 - 8, self.size // 2),
-            (self.size // 2 + 8, self.size // 2 + 5),
-            (self.size // 2, self.size // 2 + 15)
-        ]
-        
-        for hole_pos in holes:
-            pygame.draw.circle(self.image, hole_color, hole_pos, 4)
-            pygame.draw.circle(self.image, (0, 0, 0), hole_pos, 4, 1)
-            
+        """Crear/Preparar las imágenes del queso y la jaula"""
+        # Cargar imágenes desde el mismo directorio
+        cheese_raw = pygame.image.load("cheese.png").convert_alpha()
+        cage_raw   = pygame.image.load("cage.png").convert_alpha()
+
+        # --- Tamaños fijos para cada sprite ---
+        cheese_size = (70, 70)   # Tamaño del queso
+        cage_size   = (200, 220) # Tamaño de la jaula
+
+        # Escalar a esos tamaños
+        self.cheese_img = pygame.transform.smoothscale(cheese_raw, cheese_size)
+        self.cage_img   = pygame.transform.smoothscale(cage_raw, cage_size)
+
+        # Superficie base solo para dimensiones; el dibujado real se hace en draw()
+        self.image = pygame.Surface(cage_size, pygame.SRCALPHA)
+
+
     def update(self, dt, bounds_rect=None, circuit_complete=False):
         """Actualizar el estado del queso"""
         self.is_accessible = circuit_complete
-        
+
         if not self.collected:
-            # Animación flotante
+            # Animación flotante (solo el queso se mueve, la jaula queda fija)
             self.animation_time += dt
             float_offset = math.sin(self.animation_time * self.float_speed) * self.float_amplitude
-            self.pos.y = self.original_pos.y + float_offset
-            
-            # Actualizar imagen si cambió la accesibilidad
-            self.create_cheese_image()
-            
+            # La posición lógica del objeto (rect) sigue a la jaula, fija:
+            self.pos.update(self.original_pos.x, self.original_pos.y + float_offset)
+
             # Efecto de brillo cuando es accesible
             if self.is_accessible:
                 self.glow_time += dt
-                
-        self.rect.center = (self.pos.x, self.pos.y)
-        
+
+        # El rect queda centrado en la jaula (fija)
+        self.rect.center = (self.original_pos.x, self.original_pos.y)
+
     def can_be_collected_by(self, player_pos):
         """Verificar si el jugador puede recoger el queso"""
         if not self.is_accessible or self.collected:
             return False
-            
-        distance = pygame.Vector2(player_pos).distance_to(self.pos)
+
+        # Distancia al centro de la jaula (estático)
+        distance = pygame.Vector2(player_pos).distance_to(self.original_pos)
         return distance <= self.access_radius
-        
+
     def collect(self):
         """Marcar el queso como recolectado"""
         if self.is_accessible and not self.collected:
             self.collected = True
             return True
         return False
-        
+
     def draw(self, screen):
         """Dibujar el queso con efectos especiales"""
         if self.collected:
             return
-            
-        # Dibujar efecto de brillo si es accesible
+
+        # Dibujar efecto de brillo si es accesible (alrededor de la jaula)
         if self.is_accessible:
             glow_radius = int(self.access_radius + 10 * math.sin(self.glow_time * 3))
             glow_color = (255, 255, 0, 50)  # Amarillo semi-transparente
             glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(glow_surface, glow_color, (glow_radius, glow_radius), glow_radius)
-            screen.blit(glow_surface, (self.pos.x - glow_radius, self.pos.y - glow_radius))
-            
-        # Dibujar el queso
-        screen.blit(self.image, self.rect)
-        
-        # Dibujar texto de estado si no es accesible
+            screen.blit(glow_surface, (self.original_pos.x - glow_radius, self.original_pos.y - glow_radius))
+
+        # --- Orden de dibujado: primero el queso (detrás), luego la jaula (adelante) ---
+        # Posición del queso: sube y baja (self.pos.y); centrado bajo la jaula
+        cheese_rect = self.cheese_img.get_rect(center=(self.original_pos.x, self.pos.y))
+        screen.blit(self.cheese_img, cheese_rect)
+
+        # Jaula fija al frente
+        cage_rect = self.cage_img.get_rect(center=(self.original_pos.x, self.original_pos.y))
+        screen.blit(self.cage_img, cage_rect)
+
+        # Dibujar texto de estado si no es accesible — QUIETO debajo de la jaula y queso
         if not self.is_accessible:
-            font = pygame.font.Font(None, 24)
-            text = font.render("Complete circuit to access", True, (255, 255, 255))
-            text_rect = text.get_rect(center=(self.pos.x, self.pos.y + self.size))
-            
-            # Fondo para el texto
-            bg_rect = text_rect.inflate(10, 5)
-            pygame.draw.rect(screen, (0, 0, 0, 180), bg_rect)
+            text = self._ui_font.render("Complete circuit to access", True, (255, 255, 255))
+            text_rect = text.get_rect(midtop=(self.original_pos.x, cage_rect.bottom + 8))
+
+            # Fondo con alpha para que se lea bien
+            bg_surf = pygame.Surface((text_rect.width + 10, text_rect.height + 6), pygame.SRCALPHA)
+            pygame.draw.rect(bg_surf, (0, 0, 0, 180), bg_surf.get_rect(), border_radius=6)
+            screen.blit(bg_surf, (text_rect.x - 5, text_rect.y - 3))
             screen.blit(text, text_rect)
-            
+
     def get_access_rect(self):
         """Obtener el rectángulo de acceso para detección de colisiones"""
         return pygame.Rect(
-            self.pos.x - self.access_radius,
-            self.pos.y - self.access_radius,
+            self.original_pos.x - self.access_radius,
+            self.original_pos.y - self.access_radius,
             self.access_radius * 2,
             self.access_radius * 2
         )
