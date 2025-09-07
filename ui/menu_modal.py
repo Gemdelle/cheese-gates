@@ -52,7 +52,7 @@ class MenuModal:
 
     def update(self, dt):
         # Hover por posición del mouse
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = pygame.mouse.get_pos()  # ya transformado a coords lógicas por Game
         for i, rect in enumerate(self.button_rects):
             if rect.collidepoint(mouse_pos):
                 self.selected = i
@@ -60,12 +60,12 @@ class MenuModal:
 
     def draw(self, screen):
         # Fondo semitransparente del modal
-        s = pygame.Surface((1920,1080), pygame.SRCALPHA)
+        # Usar el tamaño actual de la ventana para que el overlay se ajuste al cambiar modo/tamaño
+        s = pygame.Surface(screen.get_size(), pygame.SRCALPHA)  # <-- se adapta al tamaño actual
         s.fill((0, 0, 0, 100))
-        screen.blit(s, (0,0))
+        screen.blit(s, (0, 0))
 
-        # Botones
-        mouse_pos = pygame.mouse.get_pos()
+    # Botones
         for i, rect in enumerate(self.button_rects):
             # Fondo del botón con imagen
             screen.blit(self.button_skins[i], rect.topleft)

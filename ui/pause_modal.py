@@ -59,8 +59,8 @@ class PauseModal:
                 break
 
     def draw(self, screen):
-        # Fondo semitransparente tipo overlay (mismo criterio que MenuModal)
-        s = pygame.Surface((1920, 1080), pygame.SRCALPHA)
+        # Fondo semitransparente tipo overlay: usar tamaño actual de la ventana
+        s = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
         s.fill((0, 0, 0, 100))
         screen.blit(s, (0, 0))
 

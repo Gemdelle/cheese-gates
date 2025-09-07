@@ -23,8 +23,10 @@ class Button:
         self.text_surface = self.font.render(text, True, self.text_color)
         self.text_rect = self.text_surface.get_rect(center=self.rect.center)
         
-    def update(self, dt):
-        mouse_pos = pygame.mouse.get_pos()
+    def update(self, dt, mouse_pos=None):
+        # Usar posición de mouse lógica si se provee; fallback a coordenadas de ventana
+        if mouse_pos is None:
+            mouse_pos = pygame.mouse.get_pos()
         was_hovered = self.is_hovered
         self.is_hovered = self.rect.collidepoint(mouse_pos)
         
