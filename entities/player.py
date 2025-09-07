@@ -4,14 +4,15 @@ import pygame
 SPEED = 260.0  # px/s
 PLAYER_SIZE = (100, 105)  # (w, h) for both standing/moving sprites - 50% del tamaño original
 
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
         super().__init__()
         # Animation variables
         self.animation_time = 0
         self.y_scale = 1.0
-        self.moving_animation_scale_range = 0.1  # Scale will oscillate between 0.9 and 1.1
-        self.moving_animation_speed = 4.0  # Oscillations per second
+        self.moving_animation_scale_range = 0.1
+        self.moving_animation_speed = 4.0
 
         # Load base images (assumed to face RIGHT by default)
         standing = pygame.image.load("character-standing.png").convert_alpha()
@@ -27,15 +28,21 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=pos)
 
         self.pos = pygame.Vector2(pos)
-        self.last_dir = pygame.Vector2(1, 0)  # facing direction (preserved when idle)
+        self.last_dir = pygame.Vector2(1, 0)
 
         # If your art's default orientation isn't RIGHT, tweak this:
-        # e.g., looks UP by default → set to -90; DOWN → +90; LEFT → 180
         self.angle_offset_deg = 0
 
         # Stone interaction
         self.carried_stone = None
         self.interaction_radius = 30
+
+        # Este es el nivel de la piedrita (no esta terminado pero funciona)
+        self.carry_gap = 24            # lower than top of head (más baja al cargar)
+        self.carry_front_dist = 24     # forward along facing direction
+        self.carry_move_raise = 6      # raise a bit while moving
+        self.carry_move_side_shift = 8 # shift to player's left while moving
+        self.drop_y_offset = 16        # al soltar en el piso, caer un poco más abajo
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
@@ -61,7 +68,9 @@ class Player(pygame.sprite.Sprite):
 
             # Update animation time and calculate Y scale
             self.animation_time += dt
-            self.y_scale = 1.0 + self.moving_animation_scale_range * math.sin(self.animation_time * self.moving_animation_speed * 2 * math.pi)
+            self.y_scale = 1.0 + self.moving_animation_scale_range * math.sin(
+                self.animation_time * self.moving_animation_speed * 2 * math.pi
+            )
         else:
             # Reset animation when not moving
             self.animation_time = 0
@@ -73,7 +82,7 @@ class Player(pygame.sprite.Sprite):
         # Keep on screen using current rotated frame size
         half_w, half_h = self.rect.width / 2, self.rect.height / 2
         self.pos.x = max(bounds_rect.left + half_w, min(self.pos.x, bounds_rect.right - half_w))
-        self.pos.y = max(bounds_rect.top + half_h,  min(self.pos.y, bounds_rect.bottom - half_h))
+        self.pos.y = max(bounds_rect.top + half_h, min(self.pos.y, bounds_rect.bottom - half_h))
 
         # Si mira estrictamente a la izquierda (A), flip horizontal
         flip_only_left = (self.last_dir.x < 0) and (abs(self.last_dir.y) < 1e-6)
@@ -82,21 +91,17 @@ class Player(pygame.sprite.Sprite):
         if flip_only_left:
             # Flip horizontal sin rotación
             frame = pygame.transform.flip(frame, True, False)
-            # Escala vertical (squash & stretch) para la animación al caminar
+            # Escala vertical (squash & stretch)
             scaled = pygame.transform.smoothscale(
-                frame,
-                (frame.get_width(), int(frame.get_height() * self.y_scale))
+                frame, (frame.get_width(), int(frame.get_height() * self.y_scale))
             )
-            rotated = scaled  # sin rotación
+            rotated = scaled
         else:
             # Rotación normal según la dirección
             angle_deg = -math.degrees(math.atan2(self.last_dir.y, self.last_dir.x)) + self.angle_offset_deg
-            # Primero escala vertical
             scaled = pygame.transform.smoothscale(
-                frame,
-                (frame.get_width(), int(frame.get_height() * self.y_scale))
+                frame, (frame.get_width(), int(frame.get_height() * self.y_scale))
             )
-            # Luego rota
             rotated = pygame.transform.rotozoom(scaled, angle_deg, 1.0)
 
         old_center = self.rect.center
@@ -104,51 +109,69 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=old_center)
         self.rect.center = (self.pos.x, self.pos.y)
 
+        # La piedrita al cargarse cambia de posicion:
+        if self.carried_stone is not None:
+            p_half_h = self.rect.height / 2
+            s_half_h = self.carried_stone.rect.height / 2
+
+            base_x = self.pos.x
+            base_y = self.pos.y - p_half_h - s_half_h + self.carry_gap
+
+            fwd = self.last_dir
+            x = base_x + fwd.x * self.carry_front_dist
+            y = base_y + fwd.y * self.carry_front_dist
+
+            if moved:
+                y -= self.carry_move_raise
+                left_vec = pygame.Vector2(fwd.y, -fwd.x)
+                x += left_vec.x * self.carry_move_side_shift
+                y += left_vec.y * self.carry_move_side_shift
+
+            self.carried_stone.pos.x = x
+            self.carried_stone.pos.y = y
 
     def can_pickup_stone(self, stone):
-        """Verificar si el jugador puede recoger una piedra"""
         if self.carried_stone is not None:
-            return False  # Ya lleva una piedra
+            return False
         if stone.is_carried:
-            return False  # La piedra ya está siendo llevada
-
+            return False
         distance = pygame.Vector2(self.pos).distance_to(stone.pos)
         return distance <= self.interaction_radius
 
     def pickup_stone(self, stone):
-        """Recoger una piedra"""
         if self.can_pickup_stone(stone):
             self.carried_stone = stone
             stone.pickup()
+            p_half_h = self.rect.height / 2
+            s_half_h = stone.rect.height / 2
+            base_x = self.pos.x
+            base_y = self.pos.y - p_half_h - s_half_h + self.carry_gap
+            fwd = self.last_dir
+            x = base_x + fwd.x * self.carry_front_dist
+            y = base_y + fwd.y * self.carry_front_dist
+            stone.pos.x = x
+            stone.pos.y = y
             return True
         return False
 
     def can_drop_stone(self):
-        """Verificar si el jugador puede soltar la piedra que lleva"""
         return self.carried_stone is not None
 
     def drop_stone(self, drop_zone=None):
-        """Soltar la piedra que lleva"""
         if not self.can_drop_stone():
             return False
-
         stone = self.carried_stone
         self.carried_stone = None
-
         if drop_zone and drop_zone.can_accept_stone():
-            # Colocar en la zona de drop
             drop_zone.add_stone(stone)
         else:
-            # Soltar en el lugar actual
-            stone.place_at(self.pos)
-
+                stone.place_at((self.pos.x, self.pos.y + self.drop_y_offset))
         return True
 
     def get_interaction_rect(self):
-        """Obtener el rectángulo de interacción del jugador"""
         return pygame.Rect(
             self.pos.x - self.interaction_radius,
             self.pos.y - self.interaction_radius,
             self.interaction_radius * 2,
-            self.interaction_radius * 2
+            self.interaction_radius * 2,
         )

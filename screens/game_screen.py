@@ -239,6 +239,12 @@ class GameScreen(Screen):
         # Dibujar sprites (piedras, jugador, queso)
         self.all_sprites.draw(self.screen)
 
+        # Si el jugador lleva una piedra, dibujarla por encima de todo (Funciona nice)
+        if self.player.carried_stone:
+            stone = self.player.carried_stone
+            # El rect ya está sincronizado en su update; re-blit para asegurar z-order
+            self.screen.blit(stone.image, stone.rect)
+
         # Dibujar queso con efectos especiales
         self.cheese.draw(self.screen)
 
