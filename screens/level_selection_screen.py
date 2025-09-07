@@ -1,5 +1,4 @@
 import pygame
-import pygame
 from .base_screen import Screen
 from ui.button import Button
 
@@ -41,9 +40,9 @@ class LevelSelectionScreen(Screen):
         pygame.mouse.set_visible(True)
 
     def update(self, dt):
-        # Mantener layout actualizado (canvas lógico es fijo, pero por claridad)
-        self._layout_buttons()
-        # Posición de mouse transformada a coordenadas lógicas del canvas
+    # No relayout continuo: evita que se pierda la animación de hover.
+    # Solo relayout en __init__ y en VIDEORESIZE.
+    # Posición de mouse transformada a coordenadas lógicas del canvas
         wx, wy = pygame.mouse.get_pos()
         scale = getattr(self.game, "render_scale", 1.0) or 1.0
         x_off, y_off = getattr(self.game, "render_offset", (0, 0))
@@ -80,6 +79,10 @@ class LevelSelectionScreen(Screen):
         elif event.type == pygame.VIDEORESIZE:
             # Re-layout ante cambios de ventana (el canvas sigue siendo fijo)
             self._layout_buttons()
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            # ESC en niveles: regresar a la pantalla inicial (splash)
+            from .splash_screen import SplashScreen
+            self.game.change_screen(SplashScreen(self.game))
 
     def _layout_buttons(self):
         """Posicionar botones centrados horizontalmente con sus tamaños propios."""
@@ -115,15 +118,5 @@ class LevelSelectionScreen(Screen):
                     btn.original_rect.center = btn.rect.center
                 # Re-escalar imagen base a su nuevo tamaño
                 if hasattr(btn, 'original_image') and btn.original_image is not None:
-                    btn.image = pygame.transform.scale(btn.original_image, (w, h))
-                x_cursor += w + edge_gap
-            x_cursor = left_x
-            for btn, (w, h) in zip(self.level_buttons, self.level_sizes):
-                btn.rect.size = (w, h)
-                btn.original_rect.size = (w, h)
-                btn.rect.center = (x_cursor + w // 2, center_y)
-                btn.original_rect.center = btn.rect.center
-                # Re-escalar imagen base a su nuevo tamaño
-                if btn.original_image:
                     btn.image = pygame.transform.scale(btn.original_image, (w, h))
                 x_cursor += w + edge_gap

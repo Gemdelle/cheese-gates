@@ -1,4 +1,5 @@
 import sys
+import os
 import pygame
 
 
@@ -13,6 +14,8 @@ class Game:
         # Ventana inicial (tamaño físico); el contenido se escala con letterboxing.
         initial_window = (1280, 720)
         self.screen = pygame.display.set_mode(initial_window, pygame.RESIZABLE)
+        # Guardar último tamaño de ventana para alternar con F11
+        self.last_windowed_size = initial_window
 
         # Superficie lógica (canvas) donde se dibuja todo a 1920x1080.
         self.canvas = pygame.Surface((self.WIDTH, self.HEIGHT)).convert_alpha()
@@ -41,6 +44,9 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                # Atajo global: F11 alterna entre pantalla completa y ventana
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                    self._toggle_fullscreen()
                 elif self.current_screen:
                     # Transformar eventos de mouse a coordenadas lógicas del canvas
                     if event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
@@ -82,3 +88,29 @@ class Game:
 
         pygame.quit()
         sys.exit()
+
+    def _toggle_fullscreen(self):
+        """Alternar entre modo pantalla completa (FULLSCREEN) y ventana (RESIZABLE).
+        - Si no estamos en FULLSCREEN: guardar tamaño actual y pasar a FULLSCREEN.
+        - Si estamos en FULLSCREEN: volver a ventana con el último tamaño recordado.
+        """
+        surf = pygame.display.get_surface()
+        if not surf:
+            return
+        flags = surf.get_flags()
+        if flags & pygame.FULLSCREEN:
+            # Volver a ventana
+            os.environ["SDL_VIDEO_CENTERED"] = "1"
+            try:
+                self.screen = pygame.display.set_mode(self.last_windowed_size, pygame.RESIZABLE)
+            except Exception:
+                self.screen = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
+        else:
+            # Guardar tamaño actual de ventana (en ventana o borderless)
+            self.last_windowed_size = self.screen.get_size()
+            try:
+                self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            except Exception:
+                # Fallback a fullscreen a la resolución actual de escritorio
+                info = pygame.display.Info()
+                self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.FULLSCREEN)

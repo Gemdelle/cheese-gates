@@ -1,7 +1,10 @@
 import pygame
+from ui.button import Button
 
 class PauseModal:
-    def __init__(self, x, y):
+    def __init__(self, game, x, y):
+        # Referencia al juego para convertir coordenadas a canvas lógico
+        self.game = game
         # Contenedor del modal
         self.rect = pygame.Rect(0, 0, 400, 700)
         self.rect.center = (x, y)
@@ -23,27 +26,20 @@ class PauseModal:
         total_h = len(self.options) * self.button_h + (len(self.options) - 1) * self.button_spacing
         top_y = self.rect.centery - total_h // 2
 
-        # Prepara rects de botones y textos
-        self.button_rects = []
-        self.text_surfaces = []
-        self.text_rects = []
-        for i, opt in enumerate(self.options):
-            rect = pygame.Rect(0, 0, self.button_w, self.button_h)
-            rect.centerx = self.rect.centerx
-            rect.y = top_y + i * (self.button_h + self.button_spacing)
-            self.button_rects.append(rect)
-
-            text_surf = self.font.render(opt["text"], True, self.text_color)
-            text_rect = text_surf.get_rect(center=rect.center)
-            self.text_surfaces.append(text_surf)
-            self.text_rects.append(text_rect)
-
-        # Cargar skin de botón y cachear escalados por rect (button.png)
+        # Cargar skin de botón y crear botones con animación de hover
         self.button_skin_raw = pygame.image.load("button.png").convert_alpha()
-        self.button_skins = [
-            pygame.transform.smoothscale(self.button_skin_raw, (r.width, r.height))
-            for r in self.button_rects
-        ]
+        self.buttons = []
+        for i, opt in enumerate(self.options):
+            cx = self.rect.centerx
+            cy = top_y + i * (self.button_h + self.button_spacing) + self.button_h // 2
+            btn = Button(cx, cy, self.button_w, self.button_h,
+                         text=opt["text"], image=self.button_skin_raw, scale=1.0)
+            # Aplicar fuente y color
+            btn.font = self.font
+            btn.text_color = self.text_color
+            btn.text_surface = btn.font.render(btn.text, True, btn.text_color)
+            btn.text_rect = btn.text_surface.get_rect(center=btn.rect.center)
+            self.buttons.append(btn)
 
         # Estado de selección (hover)
         self.selected = 0
@@ -52,12 +48,24 @@ class PauseModal:
         pygame.mouse.set_visible(True)
 
     def update(self, dt):
-        # Hover por posición del mouse
-        mouse_pos = pygame.mouse.get_pos()
-        for i, rect in enumerate(self.button_rects):
-            if rect.collidepoint(mouse_pos):
-                self.selected = i
-                break
+        # Hover por posición del mouse en coordenadas lógicas del canvas
+        wx, wy = pygame.mouse.get_pos()
+        scale = getattr(self.game, "render_scale", 1.0) or 1.0
+        x_off, y_off = getattr(self.game, "render_offset", (0, 0))
+        if scale > 0:
+            lx = int((wx - x_off) / scale)
+            ly = int((wy - y_off) / scale)
+        else:
+            lx, ly = wx, wy
+        mouse_pos = (lx, ly)
+
+        hovered = -1
+        for i, btn in enumerate(self.buttons):
+            btn.update(dt, mouse_pos)
+            if btn.rect.collidepoint(mouse_pos):
+                hovered = i
+        if hovered != -1:
+            self.selected = hovered
 
     def draw(self, screen):
         # Fondo semitransparente tipo overlay: usar tamaño actual de la ventana
@@ -65,27 +73,23 @@ class PauseModal:
         s.fill((0, 0, 0, 100))
         screen.blit(s, (0, 0))
 
-        # Botones con skin + texto
-        for i, rect in enumerate(self.button_rects):
-            screen.blit(self.button_skins[i], rect.topleft)
-
-            # Re-centrar texto por si cambia el layout
-            self.text_rects[i].center = rect.center
-            screen.blit(self.text_surfaces[i], self.text_rects[i])
+        # Botones con animación propia
+        for btn in self.buttons:
+            btn.draw(screen)
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEMOTION:
-            # Actualiza seleccionado por hover
+            # Actualiza seleccionado por hover (event.pos ya está en coords lógicas)
             self.selected = -1
-            for i, rect in enumerate(self.button_rects):
-                if rect.collidepoint(event.pos):
+            for i, btn in enumerate(self.buttons):
+                if btn.rect.collidepoint(event.pos):
                     self.selected = i
                     break
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             # Click sobre botón completo
-            for i, rect in enumerate(self.button_rects):
-                if rect.collidepoint(event.pos):
+            for i, btn in enumerate(self.buttons):
+                if btn.rect.collidepoint(event.pos):
                     return self.options[i]["action"]
 
         elif event.type == pygame.KEYDOWN:

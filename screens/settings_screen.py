@@ -11,7 +11,7 @@ class SettingsScreen(Screen):
         self.title_font = pygame.font.Font(None, 48)
 
         # Opciones de configuración
-        # Nota: usamos resolución "lógica" y el flag SCALED para que el contenido no se mueva ni se desborde.
+        # Nota: el juego dibuja en un canvas lógico; cambiamos solo la ventana física
         self.settings = {
             "resolution": {
                 "options": ["1920x1080", "1280x720", "800x600"],
@@ -19,7 +19,9 @@ class SettingsScreen(Screen):
             },
             "window_mode": {
                 # 3 modos: Pantalla Completa, Ventana Sin bordes (borderless), Ventana (redimensionable)
-                "options": ["Pantalla Completa", "Ventana Sin bordes", "Ventana"],  # Agregado modo extra
+                # Nota: "Pantalla completa sin bordes" se unifica dentro de "Ventana Sin bordes"
+                # usando el tamaño del escritorio cuando coincide la resolución seleccionada.
+                "options": ["Pantalla Completa", "Ventana Sin bordes", "Ventana"],
                 "current": 0,
             },
             # Extras (placeholders)
@@ -27,14 +29,16 @@ class SettingsScreen(Screen):
             "colorblind_mode": {"options": ["Off", "On"], "current": 0},
         }
 
-        # Estado de UI
-        self.selected = 0                      # Índice de opción seleccionada
-        self.option_rects = []                 # Cache de rects de (name, value)
-        self.update_option_positions()         # Calcular posiciones iniciales
+        # Estado de selección del menú
+        self.selected = 0
+
+        # Cache de rects renderizados
+        self.option_rects = []
+        self.update_option_positions()
 
         # Toast de confirmación (mensaje pequeño en la parte inferior)
         self.info_message = None
-        self.info_timer = 0.0                  # Segundos restantes del mensaje
+        self.info_timer = 0.0
 
         # Estado del menú desplegable (dropdown) para mouse/teclado
         self.dropdown_open = False
@@ -46,6 +50,9 @@ class SettingsScreen(Screen):
         # Mostrar cursor en la pantalla de Settings
         pygame.mouse.set_visible(True)
 
+    # ============================
+    # Layout
+    # ============================
     def update_option_positions(self):
         """Calcular y cachear rects de todas las opciones y del botón Back."""
         self.option_rects = []
@@ -60,7 +67,7 @@ class SettingsScreen(Screen):
         start_y = 200
         for i, (key, setting) in enumerate(self.settings.items()):
             name = key.replace("_", " ").title()
-            name_surface = self.font.render(name + ":", True, (255, 255, 255))
+            name_surface = self.font.render(name, True, (200, 200, 255))
             name_rect = name_surface.get_rect(
                 right=self.game.WIDTH // 2 - 20, centery=start_y + i * spacing
             )
@@ -78,6 +85,9 @@ class SettingsScreen(Screen):
         back_rect = back.get_rect(center=(self.game.WIDTH // 2, start_y + len(self.settings) * spacing))
         self.back_button = (back, back_rect)
 
+    # ============================
+    # Dibujo
+    # ============================
     def draw(self):
         # Limpiar fondo
         self.screen.fill((0, 0, 0))
@@ -122,6 +132,9 @@ class SettingsScreen(Screen):
             self.screen.blit(s, bg_rect.topleft)
             self.screen.blit(info_surf, info_rect)
 
+    # ============================
+    # Lógica
+    # ============================
     def handle_event(self, event):
         # Interacción con teclado
         if event.type == pygame.KEYDOWN:
@@ -161,9 +174,9 @@ class SettingsScreen(Screen):
                     # Enter sobre una opción -> abrir dropdown
                     self._open_dropdown(self.selected)
 
-    # Redimensionamiento: el juego escala el canvas lógicamente, no hay que tocar layout
+        # Redimensionamiento: el juego escala el canvas lógicamente, no hay que tocar layout
         elif event.type == pygame.VIDEORESIZE:
-            pass  # No cambiamos resoluciones lógicas aquí
+            pass
 
         # Mouse hover dentro del dropdown
         elif event.type == pygame.MOUSEMOTION:
@@ -210,79 +223,81 @@ class SettingsScreen(Screen):
         if self.info_timer > 0:
             self.info_timer = max(0.0, self.info_timer - dt)
 
+    # ============================
+    # Aplicación de ajustes de ventana
+    # ============================
     def apply_settings(self):
         """
-    Aplicar tamaño de ventana y modo, manteniendo la resolución lógica fija (canvas 1920x1080):
-    - Pantalla Completa: FULLSCREEN.
-    - Ventana Sin bordes: NOFRAME a tamaño del escritorio.
-    - Ventana: RESIZABLE (centrada) con la resolución elegida para que sea visible el cambio.
+        Aplicar tamaño de ventana y modo, manteniendo la resolución lógica fija (canvas 1920x1080):
+        - Pantalla Completa: FULLSCREEN.
+        - Ventana Sin bordes: NOFRAME usando la resolución seleccionada (como ventana sin bordes).
+        - Ventana: RESIZABLE (centrada) con la resolución elegida.
         """
-        import os  # # Usamos variables de entorno SDL para posicionar la ventana
+        import os  # Usamos variables de entorno SDL para posicionar la ventana
+
         # Obtener modo de ventana
         mode = self.settings["window_mode"]["options"][self.settings["window_mode"]["current"]]
-        
-        # Obtener resolución lógica actual
+
+        # Obtener resolución seleccionada (física de la ventana)
         resolution_options = self.settings["resolution"]["options"]
         cur_idx = self.settings["resolution"]["current"]
-        resolution = resolution_options[cur_idx]
-        width, height = map(int, resolution.split("x"))
+        width, height = map(int, resolution_options[cur_idx].split("x"))
 
-        # Si el usuario cambia a "Ventana", forzamos una ventana pequeña escogiendo
-        # la resolución más pequeña disponible (p.ej. 800x600) para que el cambio sea visible.
+        # Si el usuario cambia a "Ventana", podemos forzar una más pequeña para notar el cambio
         if mode == "Ventana":
-            # # Encontrar el índice de la resolución con menor área (ancho*alto)
             sizes = [tuple(map(int, opt.split("x"))) for opt in resolution_options]
             min_idx = min(range(len(sizes)), key=lambda i: sizes[i][0] * sizes[i][1])
             if cur_idx != min_idx:
-                self.settings["resolution"]["current"] = min_idx  # # Reflejar en el UI la selección más pequeña
-                resolution = resolution_options[min_idx]
+                self.settings["resolution"]["current"] = min_idx
                 width, height = sizes[min_idx]
 
-        # Flags de ventana
+        # Flags de ventana y posicionamiento
         if mode == "Pantalla Completa":
             flags = pygame.FULLSCREEN
-            # # En fullscreen no centramos ni fijamos posición de ventana
             os.environ.pop("SDL_VIDEO_CENTERED", None)
             os.environ.pop("SDL_VIDEO_WINDOW_POS", None)
         elif mode == "Ventana Sin bordes":
             flags = pygame.NOFRAME
-            # # Borderless: forzamos posición (0,0) para cubrir la pantalla
-            os.environ["SDL_VIDEO_WINDOW_POS"] = "0,0"
-            os.environ.pop("SDL_VIDEO_CENTERED", None)
+            # Borderless: si la resolución seleccionada coincide con el escritorio -> ocupar toda la pantalla (0,0)
+            # de lo contrario, usar tamaño custom centrado.
+            info = pygame.display.Info()
+            if width == info.current_w and height == info.current_h:
+                os.environ["SDL_VIDEO_WINDOW_POS"] = "0,0"
+                os.environ.pop("SDL_VIDEO_CENTERED", None)
+            else:
+                os.environ["SDL_VIDEO_CENTERED"] = "1"
+                os.environ.pop("SDL_VIDEO_WINDOW_POS", None)
         else:  # Ventana
             flags = pygame.RESIZABLE
-            # # Ventana normal: centrar para notar el cambio visual
             os.environ["SDL_VIDEO_CENTERED"] = "1"
             os.environ.pop("SDL_VIDEO_WINDOW_POS", None)
 
-    # Mantener resolución lógica del juego (canvas), no la cambiamos aquí
-
-        # Cambiar realmente el modo de pantalla y mantener referencia local
-        # # Nota: set_mode recrea la ventana; en algunos drivers es más fiable reinicializar display
+        # Aplicar modo y tamaño reales (NO cambiar la resolución lógica del canvas)
         try:
-            # Para ventana sin bordes, tomar tamaño de escritorio
             size = (width, height)
             if mode == "Pantalla Completa":
-                size = (0, 0)  # dejar a pygame usar el modo actual
+                size = (0, 0)  # delegar a SDL la resolución actual
             elif mode == "Ventana Sin bordes":
+                # Si coincide con escritorio -> borderless fullscreen
                 info = pygame.display.Info()
-                size = (info.current_w, info.current_h)
+                if width == info.current_w and height == info.current_h:
+                    size = (info.current_w, info.current_h)
+            # En Ventana Sin bordes (custom): usar size seleccionado
             self.game.screen = pygame.display.set_mode(size, flags)
         except Exception:
-            # # Fallback robusto (raro): reiniciar subsistema display
             pygame.display.quit()
             pygame.display.init()
             self.game.screen = pygame.display.set_mode((width, height), flags)
-        self.screen = self.game.screen
 
         # Mensaje informativo (toast)
         self.info_message = f"Modo de ventana: {mode}"
         self.info_timer = 2.0
 
-        # # Reflejar el modo en el título de la ventana para confirmación visual inmediata
-        pygame.display.set_caption(f"Cheese Gates - {mode} - {width}x{height}")
+        # Título de la ventana con tamaño real
+        real_w, real_h = self.game.screen.get_size()
+        pygame.display.set_caption(f"Cheese Gates - {mode} - {real_w}x{real_h}")
 
-        # Recalcular posiciones con la nueva resolución lógica
+        # Re-render de textos (por si cambió el valor mostrado)
         self.update_option_positions()
 
     # ============================

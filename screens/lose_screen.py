@@ -40,8 +40,19 @@ class LoseScreen(Screen):
         pygame.mouse.set_visible(True)
 
     def update(self, dt):
-        self.retry_button.update(dt)
-        self.menu_button.update(dt)
+        # Usar coordenadas lógicas del canvas para que el hover funcione con el escalado
+        wx, wy = pygame.mouse.get_pos()
+        scale = getattr(self.game, "render_scale", 1.0) or 1.0
+        x_off, y_off = getattr(self.game, "render_offset", (0, 0))
+        if scale > 0:
+            lx = int((wx - x_off) / scale)
+            ly = int((wy - y_off) / scale)
+        else:
+            lx, ly = wx, wy
+        mouse_pos = (lx, ly)
+
+        self.retry_button.update(dt, mouse_pos)
+        self.menu_button.update(dt, mouse_pos)
 
     def draw(self):
         self.screen.blit(self.background, (0, 0))
@@ -50,12 +61,13 @@ class LoseScreen(Screen):
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.retry_button.is_hovered:
+            # Usar hover o colisión directa con la posición del evento (ya transformada a lógica por Game)
+            if self.retry_button.is_hovered or self.retry_button.rect.collidepoint(event.pos):
                 # Reinicia el mismo nivel
                 from .game_screen import GameScreen  # <-- import correcto
                 self.game.change_screen(GameScreen(self.game, level=self.level))
                 pygame.mouse.set_visible(False)
-            elif self.menu_button.is_hovered:
+            elif self.menu_button.is_hovered or self.menu_button.rect.collidepoint(event.pos):
                 from .level_selection_screen import LevelSelectionScreen
                 self.game.change_screen(LevelSelectionScreen(self.game))
 
