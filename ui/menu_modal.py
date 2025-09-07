@@ -10,6 +10,7 @@ class MenuModal:
         self.font = pygame.font.Font("font/BlackCastleMF.ttf", 36)
         self.text_color = (255, 246, 170)  # amarillo clarito
         self.options = [
+            {"text": "Tutorial",        "action": "tutorial"},   # <-- NUEVO
             {"text": "Start Game",      "action": "start_game"},
             {"text": "Settings",        "action": "settings"},
             {"text": "Exit to Desktop", "action": "exit"},
@@ -65,13 +66,11 @@ class MenuModal:
         screen.blit(s, (0,0))
 
         # Botones
-        mouse_pos = pygame.mouse.get_pos()
         for i, rect in enumerate(self.button_rects):
             # Fondo del botón con imagen
             screen.blit(self.button_skins[i], rect.topleft)
 
-            # Texto centrado
-            # (re-centrar por si el rect cambió por layout)
+            # Texto centrado (re-centrar por si el rect cambió por layout)
             self.text_rects[i].center = rect.center
             screen.blit(self.text_surfaces[i], self.text_rects[i])
 
