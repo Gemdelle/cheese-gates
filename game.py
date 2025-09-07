@@ -2,6 +2,7 @@ import sys
 import os
 import pygame
 from settings_store import load_settings
+from audio.sound_manager import SoundManager
 
 
 class Game:
@@ -10,6 +11,16 @@ class Game:
 
     def __init__(self):
         pygame.init()
+        # Inicializar mixer con configuración segura
+        try:
+            pygame.mixer.pre_init(44100, -16, 2, 512)
+        except Exception:
+            pass
+        try:
+            pygame.mixer.init()
+        except Exception:
+            # Continuar sin audio si falla
+            pass
         pygame.display.set_caption("Cheese Gates")
 
         # Cargar ajustes previos (si existen)
@@ -48,6 +59,10 @@ class Game:
 
         self.clock = pygame.time.Clock()
         self.current_screen = None
+        self.render_scale = 1.0
+        self.render_offset = (0, 0)
+        # Gestor de sonido
+        self.audio = SoundManager()
 
     def change_screen(self, screen):
         self.current_screen = screen

@@ -41,13 +41,45 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         "circuit_bg": "level_1.png"
     },
     2: {
-
+        # Ejemplo: 3 inputs, uno invertido (NOT)
+        "inputs": [
+            {"threshold": 5, "invert": False},
+            {"threshold": 0, "invert": True},   # NOT: vale 1 si no hay piedras
+            {"threshold": 8, "invert": False},
+        ],
+        # (NOT input1) AND (input0 OR input2)
+        "circuit": {
+            "op": "AND",
+            "args": [
+                {"op": "NOT", "args": [1]},
+                {"op": "OR",  "args": [0, 2]}
+            ]
+        }
     },
     3: {
-
+        # 2 inputs más exigentes
+        "inputs": [
+            {"threshold": 10, "invert": False},
+            {"threshold": 6,  "invert": False},
+        ],
+        # input0 AND input1
+        "circuit": {"op": "AND", "args": [0, 1]}
     },
     4: {
-
+        # 3 inputs con umbrales parejos
+        "inputs": [
+            {"threshold": 4, "invert": False},
+            {"threshold": 4, "invert": False},
+            {"threshold": 4, "invert": False},
+        ],
+        # (input0 AND input1) OR (input1 AND input2)
+        "circuit": {
+            "op": "OR",
+            "args": [
+                {"op": "AND", "args": [0, 1]},
+                {"op": "AND", "args": [1, 2]}
+            ]
+        }
     },
 }
 

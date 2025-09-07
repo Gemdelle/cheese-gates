@@ -1,6 +1,6 @@
 {
   "resolution": "1920x1080",
   "window_mode": "Pantalla Completa",
-  "audio": "Off",
+  "audio": "On",
   "colorblind_mode": "Off"
 }

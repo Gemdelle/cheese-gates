@@ -60,21 +60,35 @@ class LevelSelectionScreen(Screen):
         self.single_gap = 160                # separación horizontal entre botones
 
         self.level_buttons = []
+        # Limitar la cantidad de botones al número de niveles definidos, si aplica
+        try:
+            from logic.level_logic import LEVELS as _LEVELS
+            self.available_levels = sorted(list(_LEVELS.keys()))
+        except Exception:
+            self.available_levels = [1, 2, 3, 4]
         self._create_single_row_buttons()
 
         # Mostrar cursor
         pygame.mouse.set_visible(True)
 
+        # Música de escena (configurable en audio/audio_config.json)
+        if getattr(self.game, "audio", None):
+            self.game.audio.enter_scene("level_select")
+
     def _create_single_row_buttons(self):
         """Crear los 4 botones en una sola fila, centrados, manteniendo tamaños."""
         game = self.game
         sizes = self.single_row_sizes
-        total_w = sum(w for (w, h) in sizes) + self.single_gap * (len(sizes) - 1)
+        # Asegurar no crear más botones que niveles disponibles
+        max_buttons = min(len(sizes), len(getattr(self, 'available_levels', sizes)))
+        sizes_use = sizes[:max_buttons]
+
+        total_w = sum(w for (w, h) in sizes_use) + self.single_gap * (len(sizes_use) - 1 if sizes_use else 0)
         left_x = game.WIDTH // 2 - total_w // 2
         x_cursor = left_x
 
         self.level_buttons.clear()
-        for i, (w, h) in enumerate(sizes):
+        for i, (w, h) in enumerate(sizes_use):
             cx = x_cursor + w // 2
             img = self.level_imgs[i]
             btn = Button(
@@ -101,9 +115,17 @@ class LevelSelectionScreen(Screen):
 
         # Si tu Button.update acepta mouse_pos, pasalo; si no, cambiá a update(dt)
         try:
+            prev_h = getattr(self.instructions_button, "is_hovered", False)
             self.instructions_button.update(dt, mouse_pos)
+            if not prev_h and getattr(self.instructions_button, "is_hovered", False):
+                if getattr(self.game, "audio", None):
+                    self.game.audio.play_event_name("ui_hover", volume=0.6)
             for button in self.level_buttons:
+                prev = getattr(button, "is_hovered", False)
                 button.update(dt, mouse_pos)
+                if not prev and getattr(button, "is_hovered", False):
+                    if getattr(self.game, "audio", None):
+                        self.game.audio.play_event_name("ui_click", volume=0.7)
         except TypeError:
             self.instructions_button.update(dt)
             for button in self.level_buttons:
@@ -122,6 +144,8 @@ class LevelSelectionScreen(Screen):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             # Tutorial
             if getattr(self.instructions_button, "is_hovered", False):
+                if getattr(self.game, "audio", None):
+                    self.game.audio.play_event_name("ui_click", volume=0.7)
                 from .tutorial_screen import TutorialScreen
                 self.game.change_screen(TutorialScreen(self.game))  # muestra tutorial-bg.png
                 return
@@ -129,10 +153,13 @@ class LevelSelectionScreen(Screen):
             # Niveles (4 en una fila)
             for i, button in enumerate(self.level_buttons):
                 if getattr(button, "is_hovered", False):
+                    if getattr(self.game, "audio", None):
+                        self.game.audio.play_event_name("ui_click", volume=0.7)
                     from .game_screen import GameScreen
-                    self.game.change_screen(GameScreen(self.game, level=i + 1))
-                    pygame.mouse.set_visible(False)
-                    break
+                    # Mapear índice de botón al número de nivel disponible
+                    level_num = getattr(self, 'available_levels', [1, 2, 3, 4])[i]
+                    self.game.change_screen(GameScreen(self.game, level=level_num))
+                    return
 
         elif event.type == pygame.VIDEORESIZE:
             # Reescalar fondo y reacomodar fila

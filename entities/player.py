@@ -44,27 +44,31 @@ class Player(pygame.sprite.Sprite):
         self.carry_move_side_shift = 8 # shift to player's left while moving
         self.drop_y_offset = 16        # al soltar en el piso, caer un poco más abajo
 
+        # Estado de movimiento (para audio)
+        self.is_moving = False
+
     def handle_input(self):
         keys = pygame.key.get_pressed()
-        dir = pygame.Vector2(0, 0)
+        direction = pygame.Vector2(0, 0)
         if keys[pygame.K_w] or keys[pygame.K_UP]:
-            dir.y -= 1
+            direction.y -= 1
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            dir.y += 1
+            direction.y += 1
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            dir.x -= 1
+            direction.x -= 1
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            dir.x += 1
-        return dir
+            direction.x += 1
+        return direction
 
     def update(self, dt, bounds_rect):
-        dir = self.handle_input()
-        moved = dir.length_squared() > 0
+        direction = self.handle_input()
+        moved = direction.length_squared() > 0
+        self.is_moving = moved
 
         if moved:
-            dir = dir.normalize()
-            self.last_dir = dir
-            self.pos += dir * SPEED * dt
+            direction = direction.normalize()
+            self.last_dir = direction
+            self.pos += direction * SPEED * dt
 
             # Update animation time and calculate Y scale
             self.animation_time += dt
@@ -73,7 +77,7 @@ class Player(pygame.sprite.Sprite):
             )
         else:
             # Reset animation when not moving
-            self.animation_time = 0
+            self.animation_time = 0.0
             self.y_scale = 1.0
 
         # Switch base image depending on movement state
@@ -165,7 +169,7 @@ class Player(pygame.sprite.Sprite):
         if drop_zone and drop_zone.can_accept_stone():
             drop_zone.add_stone(stone)
         else:
-                stone.place_at((self.pos.x, self.pos.y + self.drop_y_offset))
+            stone.place_at((self.pos.x, self.pos.y + self.drop_y_offset))
         return True
 
     def get_interaction_rect(self):

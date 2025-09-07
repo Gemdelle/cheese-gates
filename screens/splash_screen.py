@@ -27,6 +27,10 @@ class SplashScreen(Screen):
         # Mostrar cursor en el splash
         pygame.mouse.set_visible(True)
 
+        # Música de escena (configurable en audio/audio_config.json)
+        if getattr(self.game, "audio", None):
+            self.game.audio.enter_scene("splash")
+
     def update_text(self):
         """Recrear superficie del texto con la opacidad actual"""
         self.text = self.font.render("Press Enter to Start", True, (255, 255, 255))

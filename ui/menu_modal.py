@@ -63,7 +63,12 @@ class MenuModal:
 
         hovered_index = -1
         for i, btn in enumerate(self.buttons):
+            prev = getattr(btn, "is_hovered", False)
             btn.update(dt, mouse_pos)
+            # Reproducir SFX al entrar en hover
+            if not prev and getattr(btn, "is_hovered", False):
+                if getattr(self.game, "audio", None):
+                    self.game.audio.play_event_name("ui_hover", volume=0.6)
             if btn.rect.collidepoint(mouse_pos):
                 hovered_index = i
         if hovered_index != -1:
@@ -93,6 +98,8 @@ class MenuModal:
             # Click sobre botón completo
             for i, btn in enumerate(self.buttons):
                 if btn.rect.collidepoint(event.pos):
+                    if getattr(self.game, "audio", None):
+                        self.game.audio.play_event_name("ui_click", volume=0.7)
                     return self.options[i]["action"]
 
         elif event.type == pygame.KEYDOWN:
@@ -102,6 +109,8 @@ class MenuModal:
                 self.selected = (self.selected + 1) % len(self.options)
             elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 if 0 <= self.selected < len(self.options):
+                    if getattr(self.game, "audio", None):
+                        self.game.audio.play_event_name("ui_click", volume=0.7)
                     return self.options[self.selected]["action"]
 
         return None

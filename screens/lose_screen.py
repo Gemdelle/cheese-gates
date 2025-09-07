@@ -39,6 +39,13 @@ class LoseScreen(Screen):
         # Mostrar cursor en la pantalla de derrota
         pygame.mouse.set_visible(True)
 
+        # Música de derrota desde config JSON
+        if getattr(self.game, "audio", None):
+            try:
+                self.game.audio.play_music_name("lose")
+            except Exception:
+                pass
+
     def update(self, dt):
         # Usar coordenadas lógicas del canvas para que el hover funcione con el escalado
         wx, wy = pygame.mouse.get_pos()
@@ -63,11 +70,14 @@ class LoseScreen(Screen):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             # Usar hover o colisión directa con la posición del evento (ya transformada a lógica por Game)
             if self.retry_button.is_hovered or self.retry_button.rect.collidepoint(event.pos):
+                if getattr(self.game, "audio", None):
+                    self.game.audio.play_event_name("ui_click", volume=0.7)
                 # Reinicia el mismo nivel
                 from .game_screen import GameScreen  # <-- import correcto
                 self.game.change_screen(GameScreen(self.game, level=self.level))
-                pygame.mouse.set_visible(False)
             elif self.menu_button.is_hovered or self.menu_button.rect.collidepoint(event.pos):
+                if getattr(self.game, "audio", None):
+                    self.game.audio.play_event_name("ui_click", volume=0.7)
                 from .level_selection_screen import LevelSelectionScreen
                 self.game.change_screen(LevelSelectionScreen(self.game))
 
@@ -76,7 +86,6 @@ class LoseScreen(Screen):
                 # Retry con Enter/Espacio
                 from .game_screen import GameScreen  # <-- import correcto
                 self.game.change_screen(GameScreen(self.game, level=self.level))
-                pygame.mouse.set_visible(False)
             elif event.key == pygame.K_ESCAPE:
                 # Volver al menú con ESC
                 from .level_selection_screen import LevelSelectionScreen

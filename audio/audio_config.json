@@ -1,0 +1,33 @@
+{
+  "events": {
+  "ui_hover": { "files": ["Cloud Click"], "volume": 0.4 },
+  "ui_click": { "files": ["Cloud Click"], "volume": 0.8 },
+
+    "pickup":   { "files": ["pickup_1", "pickup_2"], "volume": 0.9 },
+    "drop":     { "files": ["drop_1", "drop_2"],   "volume": 0.9 },
+  "win":      { "files": ["Win sound"],  "volume": 1.0 },
+  "lose":     { "files": ["lose"], "volume": 1.0 },
+
+  "footstep": { "files": ["step_1", "step_2", "step_3", "step_4"], "volume": 0.4 },
+  "idle":     { "files": ["idle_1", "idle_2"], "volume": 0.5 },
+  "walking":  { "files": ["walking"], "volume": 0.45, "loop": true }
+  },
+
+  "music": {
+    "menu":         { "file": "menu",         "loop": true,  "volume": 0.7, "fade_in": 600 },
+    "level_select": { "file": "level_select", "loop": true,  "volume": 0.7, "fade_in": 600 },
+    "level":        { "file": "level",        "loop": true,  "volume": 0.8, "fade_in": 800 },
+    "tutorial":     { "file": "tutorial",     "loop": true,  "volume": 0.7, "fade_in": 600 },
+  "settings":     { "file": "settings",     "loop": true,  "volume": 0.6, "fade_in": 400 },
+  "lose":         { "file": "losegamemusic", "loop": true,  "volume": 0.8, "fade_in": 600 }
+  },
+
+  "scenes": {
+    "splash":        { "music": "menu" },
+    "menu":          { "music": "menu" },
+    "level_select":  { "music": "level_select" },
+    "level":         { "music": "level" },
+    "tutorial":      { "music": "tutorial" },
+  "settings":      { "music": "settings" }
+  }
+}

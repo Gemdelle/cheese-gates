@@ -7,7 +7,15 @@ class WinScreen(Screen):
         super().__init__(game)
         self.level = level
         # Si no te pasan el máximo, asumimos 3 niveles (ajustá si necesitás)
-        self.max_level = max_level if max_level is not None else 3
+        # Detectar máximo por LEVELS si no viene dado
+        if max_level is None:
+            try:
+                from logic.level_logic import LEVELS as _LEVELS
+                self.max_level = max(_LEVELS.keys()) if _LEVELS else 3
+            except Exception:
+                self.max_level = 3
+        else:
+            self.max_level = max_level
         self.has_next = (self.level < self.max_level)
 
         # Fondo a pantalla completa
@@ -70,11 +78,14 @@ class WinScreen(Screen):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             # Next Level (solo si hay próximo)
             if self.next_level_btn.is_hovered and self.has_next:
+                if getattr(self.game, "audio", None):
+                    self.game.audio.play_event_name("ui_click", volume=0.7)
                 from .game_screen import GameScreen
                 self.game.change_screen(GameScreen(self.game, level=self.level + 1))
-                pygame.mouse.set_visible(False)
             # Return to Menu
             elif self.menu_button.is_hovered:
+                if getattr(self.game, "audio", None):
+                    self.game.audio.play_event_name("ui_click", volume=0.7)
                 from .level_selection_screen import LevelSelectionScreen
                 self.game.change_screen(LevelSelectionScreen(self.game))
 
@@ -84,7 +95,6 @@ class WinScreen(Screen):
                 if self.has_next:
                     from .game_screen import GameScreen
                     self.game.change_screen(GameScreen(self.game, level=self.level + 1))
-                    pygame.mouse.set_visible(False)
                 else:
                     from .level_selection_screen import LevelSelectionScreen
                     self.game.change_screen(LevelSelectionScreen(self.game))
