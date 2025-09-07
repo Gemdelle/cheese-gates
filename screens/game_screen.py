@@ -243,7 +243,7 @@ class GameScreen(Screen):
         self.all_sprites.update(dt, self.playable_area)
         self.constrain_player_movement()
 
-        # Circuit (animación interna)
+    # Circuit (animación interna)
         self.logic_circuit.update(dt)
 
         # Solve forzado
@@ -251,10 +251,16 @@ class GameScreen(Screen):
             self.last_eval_complete = True
         self.logic_circuit.is_complete = self.last_eval_complete
 
-        # Cheese según estado del circuito
+        # >>> DESBLOQUEAR JAULA CUANDO EL TEST DA 1 <<<
+        # Si tu clase Cheese tiene un setter, lo usamos (opcional, no rompe si no existe).
+        if hasattr(self.cheese, "set_caged"):
+            self.cheese.set_caged(not self.last_eval_complete)
+
+        # Cheese según estado del circuito (esto ya hace que la jaula se abra si circuit_complete=True)
         self.cheese.update(dt, self.playable_area, self.logic_circuit.is_complete)
 
-        # Interacciones
+
+# Interacciones
         self.handle_stone_interactions()
         self.handle_cheese_collection()
 
@@ -297,13 +303,21 @@ class GameScreen(Screen):
         # Circuit
         self.logic_circuit.draw(self.screen)
 
-        # Sprites
+        # ====== TEST zone con imagen (DEBAJO DEL PERSONAJE) ======
+        self.screen.blit(self.test_img, self.test_zone_rect.topleft)
+        label = self.test_label_font.render("TEST", True, self.test_label_color)
+        label_rect = label.get_rect(center=self.test_zone_rect.center)
+        self.screen.blit(label, label_rect)
+        # =========================================================
+
+        # Sprites (personaje y piedras) --> se dibujan ENCIMA del botón TEST
         self.all_sprites.draw(self.screen)
         if self.player.carried_stone:
             self.screen.blit(self.player.carried_stone.image, self.player.carried_stone.rect)
 
         # Cheese FX
         self.cheese.draw(self.screen)
+
 
         # ===== Timer bar =====
         inner = self.bar_rect.inflate(-2*self.bar_padding, -2*self.bar_padding)
