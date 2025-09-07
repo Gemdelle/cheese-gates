@@ -216,72 +216,84 @@ class GameScreen(Screen):
             # Win check
             if self.level_complete:
                 from .win_screen import WinScreen
-                self.game.change_screen(WinScreen(self.game, level=self.level, bg_path="win.bg.png", max_level=3))
+                self.game.change_screen(WinScreen(self.game, level=self.level, bg_path="win-bg.png", max_level=3))
                 return
 
-            # Botón Solve (solo cuando no está el pause)
+            # Botones UI (solo cuando no está el pause)
             self.solve_button.update(dt)
 
     def draw(self):
         self.screen.blit(self.background, (0, 0))
 
-        # Debug zones
+        # Dibujar zonas de debug (temporal para visualización)
         pygame.draw.rect(self.screen, (0, 255, 255), self.playable_area, 2)
+        # pygame.draw.rect(self.screen, (255, 255, 0), self.stones_area, 2)
+        # pygame.draw.rect(self.screen, (0, 255, 0), self.input_area, 2)
         pygame.draw.rect(self.screen, (255, 0, 0), self.circuit_area, 2)
         pygame.draw.rect(self.screen, (255, 0, 255), self.reward_area, 2)
 
-        # Input zones
+        # Dibujar zonas de input
         for input_zone in self.input_zones:
             input_zone.draw(self.screen)
 
-        # Circuit
+        # Dibujar circuito lógico
         self.logic_circuit.draw(self.screen)
 
-        # Sprites
+        # Dibujar sprites (piedras, jugador, queso)
         self.all_sprites.draw(self.screen)
 
-        # Carried stone on top
+        # Si el jugador lleva una piedra, dibujarla por encima de todo (Funciona nice)
         if self.player.carried_stone:
             stone = self.player.carried_stone
+            # El rect ya está sincronizado en su update; re-blit para asegurar z-order
             self.screen.blit(stone.image, stone.rect)
 
-        # Cheese effects
+        # Dibujar queso con efectos especiales
         self.cheese.draw(self.screen)
 
-        # Timer bar
+        # ======= TIMER BAR (frame debajo, relleno arriba y CLIP interno) =======
         inner = self.bar_rect.inflate(-2*self.bar_padding, -2*self.bar_padding)
+
+        # Fondo del área vacía (dentro del marco)
         pygame.draw.rect(self.screen, self.bar_bg_color, inner, border_radius=10)
+
+        # 1) Dibujo el marco primero (queda debajo)
         self.screen.blit(self.bar_frame, self.bar_rect.topleft)
+
+        # 2) Relleno amarillo por encima, recortado al área interna
         pct = max(0.0, min(1.0, self.time_left / self.time_limit)) if self.time_limit > 0 else 0.0
         fill_w = int(inner.width * pct)
         if fill_w > 0:
             prev_clip = self.screen.get_clip()
-            self.screen.set_clip(inner)
+            self.screen.set_clip(inner)  # limitar el dibujo al área interna
             fill_rect = pygame.Rect(inner.left, inner.top, fill_w, inner.height)
             pygame.draw.rect(self.screen, self.bar_fill_color, fill_rect, border_radius=8)
             self.screen.set_clip(prev_clip)
+
+        # 3) Texto del tiempo a la derecha, fuera del marco
         seconds = int(self.time_left)
         mm, ss = divmod(seconds, 60)
         time_str = f"{mm:02d}:{ss:02d}"
         time_surf = self.time_font.render(time_str, True, self.time_color)
         time_rect = time_surf.get_rect(midleft=(self.bar_rect.right + 12, self.bar_rect.centery))
         self.screen.blit(time_surf, time_rect)
+        # ==============================================
 
-        # Level label
+        # Dibujar level number
         self.screen.blit(self.level_text, self.level_text_rect)
 
-        # Player info
+        # Dibujar información del jugador
         self.draw_player_info()
 
-        # Pause modal
+        # Draw pause modal if active
         if self.pause_modal:
             self.pause_modal.draw(self.screen)
 
-        # Victory banner (ya no se usa si cambiás de pantalla, pero lo dejo por si querés)
+        # Dibujar mensaje de victoria si el nivel está completo
         if self.level_complete:
             self.draw_victory_message()
 
-        # === DIBUJAR BOTÓN SOLVE AL FINAL (encima de todo) ===
+        # === DIBUJAR BOTONES UI AL FINAL (encima de todo) ===
         self.solve_button.draw(self.screen)
 
     def draw_player_info(self):
@@ -323,6 +335,9 @@ class GameScreen(Screen):
                 elif action == "select_level":
                     from .level_selection_screen import LevelSelectionScreen
                     self.game.change_screen(LevelSelectionScreen(self.game))
+                elif action == "tutorial":  # <-- NUEVO
+                    from .tutorial_screen import TutorialScreen
+                    self.game.change_screen(TutorialScreen(self.game, bg_path="tutorial-bg.png"))
                 elif action == "exit":
                     pygame.quit()
                     import sys
@@ -339,21 +354,18 @@ class GameScreen(Screen):
                 elif event.key == pygame.K_SPACE:
                     self.handle_space_interaction()
 
-            # Click en "Solve"
-            # Click en "Solve"
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        # Click en "Solve" o "Tutorial" (fuera del pause)
+        if not self.pause_modal and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.solve_button.rect.collidepoint(event.pos):
                 # Fuerza puzzle resuelto y gana al instante
                 self.force_solved = True
                 self.level_complete = True
-
                 from .win_screen import WinScreen
                 self.game.change_screen(WinScreen(self.game,
                                                   level=self.level,
                                                   bg_path="win-bg.png",
                                                   max_level=3))
                 return
-
 
     def handle_space_interaction(self):
         """Manejar la interacción con SPACE (recoger/soltar piedras)"""
