@@ -219,18 +219,27 @@ class GameScreen(Screen):
                 self.game.change_screen(WinScreen(self.game, level=self.level, bg_path="win-bg.png", max_level=3))
                 return
 
-            # Botones UI (solo cuando no está el pause)
-            self.solve_button.update(dt)
+            # Botones UI (solo cuando no está el pause) usando coords lógicas
+            wx, wy = pygame.mouse.get_pos()
+            scale = getattr(self.game, "render_scale", 1.0) or 1.0
+            x_off, y_off = getattr(self.game, "render_offset", (0, 0))
+            if scale > 0:
+                lx = int((wx - x_off) / scale)
+                ly = int((wy - y_off) / scale)
+            else:
+                lx, ly = wx, wy
+            self.solve_button.update(dt, (lx, ly))
 
     def draw(self):
         self.screen.blit(self.background, (0, 0))
 
-        # Dibujar zonas de debug (temporal para visualización)
-        pygame.draw.rect(self.screen, (0, 255, 255), self.playable_area, 2)
-        # pygame.draw.rect(self.screen, (255, 255, 0), self.stones_area, 2)
-        # pygame.draw.rect(self.screen, (0, 255, 0), self.input_area, 2)
-        pygame.draw.rect(self.screen, (255, 0, 0), self.circuit_area, 2)
-        pygame.draw.rect(self.screen, (255, 0, 255), self.reward_area, 2)
+    # Zonas de debug ocultas: no dibujar contenedores/contornos en gameplay
+    # (Si necesitas depurar, reactivar temporalmente estas líneas)
+    # pygame.draw.rect(self.screen, (0, 255, 255), self.playable_area, 2)
+    # pygame.draw.rect(self.screen, (255, 255, 0), self.stones_area, 2)
+    # pygame.draw.rect(self.screen, (0, 255, 0), self.input_area, 2)
+    # pygame.draw.rect(self.screen, (255, 0, 0), self.circuit_area, 2)
+    # pygame.draw.rect(self.screen, (255, 0, 255), self.reward_area, 2)
 
         # Dibujar zonas de input
         for input_zone in self.input_zones:
@@ -349,7 +358,7 @@ class GameScreen(Screen):
                         from .level_selection_screen import LevelSelectionScreen
                         self.game.change_screen(LevelSelectionScreen(self.game))
                     else:
-                        self.pause_modal = PauseModal(self.game.WIDTH // 2, self.game.HEIGHT // 2)
+                        self.pause_modal = PauseModal(self.game, self.game.WIDTH // 2, self.game.HEIGHT // 2)
                         pygame.mouse.set_visible(True)
                 elif event.key == pygame.K_SPACE:
                     self.handle_space_interaction()

@@ -1,6 +1,7 @@
 import sys
 import os
 import pygame
+from settings_store import load_settings
 
 
 class Game:
@@ -11,11 +12,36 @@ class Game:
         pygame.init()
         pygame.display.set_caption("Cheese Gates")
 
-        # Ventana inicial (tamaño físico); el contenido se escala con letterboxing.
-        initial_window = (1280, 720)
-        self.screen = pygame.display.set_mode(initial_window, pygame.RESIZABLE)
-        # Guardar último tamaño de ventana para alternar con F11
-        self.last_windowed_size = initial_window
+        # Cargar ajustes previos (si existen)
+        saved = load_settings() or {}
+
+        # Ventana inicial por defecto: Pantalla Completa
+        # Si hay ajustes guardados, aplicarlos; si no, iniciar en FULLSCREEN.
+        self.last_windowed_size = (1280, 720)
+        try:
+            if saved.get("window_mode") == "Ventana":
+                os.environ["SDL_VIDEO_CENTERED"] = "1"
+                self.screen = pygame.display.set_mode(self.last_windowed_size, pygame.RESIZABLE)
+            elif saved.get("window_mode") == "Ventana Sin bordes":
+                # Usar resolución guardada si existe; si coincide con el escritorio, ocuparlo
+                res = saved.get("resolution", "1920x1080")
+                try:
+                    w, h = map(int, res.split("x"))
+                except Exception:
+                    w, h = self.last_windowed_size
+                info = pygame.display.Info()
+                if w == info.current_w and h == info.current_h:
+                    os.environ["SDL_VIDEO_WINDOW_POS"] = "0,0"
+                    self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.NOFRAME)
+                else:
+                    os.environ["SDL_VIDEO_CENTERED"] = "1"
+                    self.screen = pygame.display.set_mode((w, h), pygame.NOFRAME)
+            else:
+                # Default FULLSCREEN
+                self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        except Exception:
+            # Fallback seguro
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
         # Superficie lógica (canvas) donde se dibuja todo a 1920x1080.
         self.canvas = pygame.Surface((self.WIDTH, self.HEIGHT)).convert_alpha()

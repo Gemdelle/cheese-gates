@@ -84,7 +84,7 @@ class SplashScreen(Screen):
         else:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and self.show_press_enter:
                 self.text_visible = False
-                self.menu_modal = MenuModal(self.game.WIDTH // 2, self.game.HEIGHT // 2)
+                self.menu_modal = MenuModal(self.game, self.game.WIDTH // 2, self.game.HEIGHT // 2)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.show_press_enter:
                 self.text_visible = False
-                self.menu_modal = MenuModal(self.game.WIDTH // 2, self.game.HEIGHT // 2)
+                self.menu_modal = MenuModal(self.game, self.game.WIDTH // 2, self.game.HEIGHT // 2)

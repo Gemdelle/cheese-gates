@@ -2,7 +2,9 @@ import pygame
 from ui.button import Button
 
 class MenuModal:
-    def __init__(self, x, y):
+    def __init__(self, game, x, y):
+        # Referencia al juego para convertir coordenadas del mouse a canvas lógico
+        self.game = game
         # Contenedor del modal
         self.rect = pygame.Rect(0, 0, 400, 700)
         self.rect.center = (x, y)
@@ -50,18 +52,14 @@ class MenuModal:
     def update(self, dt):
         # Hover por posición del mouse (transformar a coords lógicas del canvas)
         wx, wy = pygame.mouse.get_pos()
-        scale = getattr(self, "game", None)
-        if scale is not None:
-            scale = getattr(self.game, "render_scale", 1.0) or 1.0
-            x_off, y_off = getattr(self.game, "render_offset", (0, 0))
-            if scale > 0:
-                lx = int((wx - x_off) / scale)
-                ly = int((wy - y_off) / scale)
-            else:
-                lx, ly = wx, wy
-            mouse_pos = (lx, ly)
+        scale = getattr(self.game, "render_scale", 1.0) or 1.0
+        x_off, y_off = getattr(self.game, "render_offset", (0, 0))
+        if scale > 0:
+            lx = int((wx - x_off) / scale)
+            ly = int((wy - y_off) / scale)
         else:
-            mouse_pos = (wx, wy)
+            lx, ly = wx, wy
+        mouse_pos = (lx, ly)
 
         hovered_index = -1
         for i, btn in enumerate(self.buttons):

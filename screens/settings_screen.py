@@ -1,4 +1,5 @@
 import pygame
+from settings_store import load_settings, save_settings
 from .base_screen import Screen
 
 
@@ -10,7 +11,7 @@ class SettingsScreen(Screen):
         self.font = pygame.font.Font(None, 36)
         self.title_font = pygame.font.Font(None, 48)
 
-        # Opciones de configuración
+        # Opciones de configuración (indices y listas)
         # Nota: el juego dibuja en un canvas lógico; cambiamos solo la ventana física
         self.settings = {
             "resolution": {
@@ -28,6 +29,9 @@ class SettingsScreen(Screen):
             "audio": {"options": ["On", "Off"], "current": 0},
             "colorblind_mode": {"options": ["Off", "On"], "current": 0},
         }
+
+        # Cargar valores guardados si existen
+        self._load_saved_into_state()
 
         # Estado de selección del menú
         self.selected = 0
@@ -289,6 +293,17 @@ class SettingsScreen(Screen):
             pygame.display.init()
             self.game.screen = pygame.display.set_mode((width, height), flags)
 
+        # Persistir ajustes
+        try:
+            save_settings({
+                "resolution": f"{width}x{height}",
+                "window_mode": mode,
+                "audio": self.settings["audio"]["options"][self.settings["audio"]["current"]],
+                "colorblind_mode": self.settings["colorblind_mode"]["options"][self.settings["colorblind_mode"]["current"]],
+            })
+        except Exception:
+            pass
+
         # Mensaje informativo (toast)
         self.info_message = f"Modo de ventana: {mode}"
         self.info_timer = 2.0
@@ -299,6 +314,28 @@ class SettingsScreen(Screen):
 
         # Re-render de textos (por si cambió el valor mostrado)
         self.update_option_positions()
+
+    # ============================
+    # Persistencia helpers
+    # ============================
+    def _load_saved_into_state(self):
+        data = load_settings() or {}
+        # window_mode
+        wm = data.get("window_mode")
+        if wm in self.settings["window_mode"]["options"]:
+            self.settings["window_mode"]["current"] = self.settings["window_mode"]["options"].index(wm)
+        # resolution
+        res = data.get("resolution")
+        if res in self.settings["resolution"]["options"]:
+            self.settings["resolution"]["current"] = self.settings["resolution"]["options"].index(res)
+        # audio
+        audio = data.get("audio")
+        if audio in self.settings["audio"]["options"]:
+            self.settings["audio"]["current"] = self.settings["audio"]["options"].index(audio)
+        # colorblind
+        cb = data.get("colorblind_mode")
+        if cb in self.settings["colorblind_mode"]["options"]:
+            self.settings["colorblind_mode"]["current"] = self.settings["colorblind_mode"]["options"].index(cb)
 
     # ============================
     # Dropdown helpers
