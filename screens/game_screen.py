@@ -54,9 +54,9 @@ class GameScreen(Screen):
             self.all_sprites.add(stone)
 
         # Texto de nivel
-        self.font = pygame.font.Font("font/BlackCastleMF.ttf", 36)
+        self.font = pygame.font.Font("font/BlackCastleMF.ttf", 50)
         self.level_text = self.font.render(f"Level {level}", True, (255, 255, 255))
-        self.level_text_rect = self.level_text.get_rect(topleft=(20, 20))
+        self.level_text_rect = self.level_text.get_rect(topleft=(120, 45))
 
         # ======= TIMER BAR =======
         self.time_limit = 60.0
@@ -69,6 +69,7 @@ class GameScreen(Screen):
 
         self.bar_rect = pygame.Rect(0, 0, *self.bar_size)
         self.bar_rect.center = (self.game.WIDTH // 2, 100)
+        self.bar_rect.centerx -= 100
 
         bar_frame_raw = pygame.image.load("bar.png").convert_alpha()
         self.bar_frame = pygame.transform.smoothscale(bar_frame_raw, self.bar_size)
@@ -97,15 +98,19 @@ class GameScreen(Screen):
         # ====================================
 
         # ======= TEST ZONE (evalúa al pisarla) =======
-        self.test_zone_size = (160, 80)
+        self.test_zone_size = (160, 160)
         self.test_zone_rect = pygame.Rect(0, 0, *self.test_zone_size)
-        self.test_zone_rect.bottomright = (self.playable_area.right - 20, self.playable_area.bottom - 20)
-        self.test_zone_color = (70, 150, 90)
-        self.test_zone_border = (255, 255, 255)
+        self.test_zone_rect.center = (self.playable_area.centerx -80, self.playable_area.top +80)
+
+        # Fondo con imagen (platform.png) en lugar de color/borde
+        self.test_img_raw = pygame.image.load("platform.png").convert_alpha()
+        self.test_img = pygame.transform.smoothscale(self.test_img_raw, self.test_zone_size)
+
+        # Texto
         self.test_label_font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
-        self.test_label_color = (255, 246, 170)
+        self.test_label_color = (100, 50, 0)
+
         self._was_in_test_zone = False
-        # ==============================================
 
         # ======= Resultado cacheado (SOLO tras testear) =======
         # Robustez ante niveles sin configurar: fallback a 2 inputs
@@ -124,11 +129,11 @@ class GameScreen(Screen):
     pygame.mouse.set_visible(True)
 
     def setup_game_zones(self):
-        self.playable_area = pygame.Rect(120, 150, 1680, 800)
-        self.stones_area   = pygame.Rect(120, 150, 600, 150)
-        self.input_area    = pygame.Rect(120, 300, 300, 700)
-        self.circuit_area  = pygame.Rect(600, 300, 600, 400)
-        self.reward_area   = pygame.Rect(1400, 400, 200, 200)
+        self.playable_area = pygame.Rect(120, 170, 1680, 850)
+        self.stones_area   = pygame.Rect(120, 170, 600, 150)
+        self.input_area    = pygame.Rect(120, 320, 300, 650)
+        self.circuit_area  = pygame.Rect(500, 370, 1100, 600)
+        self.reward_area   = pygame.Rect(1600, 520, 200, 200)
 
     def setup_stones(self):
         self.stones = []
@@ -310,6 +315,12 @@ class GameScreen(Screen):
 
     def draw(self):
         self.screen.blit(self.background, (0, 0))
+        # pygame.draw.rect(self.screen, (0, 0, 255), self.circuit_area, 2)
+        # pygame.draw.rect(self.screen, (0, 255, 255), self.playable_area, 2)
+        # pygame.draw.rect(self.screen, (255, 255, 0), self.stones_area, 2)
+        # pygame.draw.rect(self.screen, (0, 255, 0), self.input_area, 2)
+        # pygame.draw.rect(self.screen, (255, 0, 255), self.reward_area, 2)
+
 
         # Input zones
         for input_zone in self.input_zones:
@@ -369,13 +380,12 @@ class GameScreen(Screen):
             self.screen.blit(result_surf, result_rect)
         # ==================================================
 
-        # ====== TEST zone ======
-        pygame.draw.rect(self.screen, self.test_zone_color, self.test_zone_rect, border_radius=12)
-        pygame.draw.rect(self.screen, self.test_zone_border, self.test_zone_rect, 2, border_radius=12)
+        # ====== TEST zone con imagen ======
+        self.screen.blit(self.test_img, self.test_zone_rect.topleft)
         label = self.test_label_font.render("TEST", True, self.test_label_color)
         label_rect = label.get_rect(center=self.test_zone_rect.center)
         self.screen.blit(label, label_rect)
-        # =======================
+        # ==================================
 
         # Pause modal
         if self.pause_modal:
@@ -385,16 +395,16 @@ class GameScreen(Screen):
         self.solve_button.draw(self.screen)
 
     def draw_player_info(self):
-        info_font = pygame.font.Font("font/BlackCastleMF.ttf", 24)
-        y_offset = 70
+        info_font = pygame.font.Font("font/BlackCastleMF.ttf", 26)
+        y_offset = 100
         if self.player.carried_stone:
             carried_text = f"Carrying stone: {self.player.carried_stone.weight}"
-            text = info_font.render(carried_text, True, (255, 255, 255))
-            self.screen.blit(text, (20, y_offset))
+            text = info_font.render(carried_text, True, (90, 90, 90))
+            self.screen.blit(text, (120, y_offset))
         else:
             instructions = "Press SPACE near a stone to pick it up"
-            text = info_font.render(instructions, True, (255, 255, 255))
-            self.screen.blit(text, (20, y_offset))
+            text = info_font.render(instructions, True, (255, 246, 170))
+            self.screen.blit(text, (120, y_offset))
 
     def handle_event(self, event):
         if self.pause_modal:

@@ -30,7 +30,7 @@ class LevelSelectionScreen(Screen):
         # ===== Imágenes de niveles (robusto: usar fallback si falta alguna) =====
         self.level_imgs = []
         level_files = [
-            "cheese.png",   # Nivel 1
+            "level-1.png",   # Nivel 1
             "level-2.png",  # Nivel 2
             "level-3.png",  # Nivel 3
             "level-4.png",  # Nivel 4

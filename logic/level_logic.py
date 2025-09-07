@@ -38,7 +38,7 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         ],
         # Lógica del nivel 1: con OR alcanza con que 1 cumpla.
         "circuit": {"op": "OR", "args": [0, 1]},
-        "circuit_bg": "level_1.png"
+        "circuit_bg": "circuit-1.png"
     },
     2: {
         # Ejemplo: 3 inputs, uno invertido (NOT)

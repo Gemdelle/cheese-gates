@@ -20,7 +20,7 @@ class Cheese(pygame.sprite.Sprite):
         self.glow_time = 0
 
         # Crear imagen del queso
-        self.size = 60
+        self.size = 70
         self.create_cheese_image()
 
         self.rect = self.cage_img.get_rect(center=pos)  # El rect sigue la jaula (fija)
@@ -29,16 +29,16 @@ class Cheese(pygame.sprite.Sprite):
         self.access_radius = 40
 
         # Fuente del cartel (podés cambiar por tu .ttf si querés)
-        self._ui_font = pygame.font.Font("font/BlackCastleMF.ttf", 24)
+        self._ui_font = pygame.font.Font("font/BlackCastleMF.ttf", 30)
 
     def create_cheese_image(self):
-        """Crear/Preparar las imágenes del queso y la jaula"""
+        """Crear las imágenes del queso y la jaula"""
         # Cargar imágenes desde el mismo directorio
         cheese_raw = pygame.image.load("cheese.png").convert_alpha()
         cage_raw   = pygame.image.load("cage.png").convert_alpha()
 
         # --- Tamaños fijos para cada sprite ---
-        cheese_size = (70, 70)   # Tamaño del queso
+        cheese_size = (130, 100)   # Tamaño del queso
         cage_size   = (200, 220) # Tamaño de la jaula
 
         # Escalar a esos tamaños
@@ -58,7 +58,7 @@ class Cheese(pygame.sprite.Sprite):
             self.animation_time += dt
             float_offset = math.sin(self.animation_time * self.float_speed) * self.float_amplitude
             # La posición lógica del objeto (rect) sigue a la jaula, fija:
-            self.pos.update(self.original_pos.x, self.original_pos.y + float_offset)
+            self.pos.update(self.original_pos.x, self.original_pos.y - float_offset + 20)
 
             # Efecto de brillo cuando es accesible
             if self.is_accessible:
@@ -107,13 +107,8 @@ class Cheese(pygame.sprite.Sprite):
 
         # Dibujar texto de estado si no es accesible — QUIETO debajo de la jaula y queso
         if not self.is_accessible:
-            text = self._ui_font.render("Complete circuit to access", True, (255, 255, 255))
+            text = self._ui_font.render("Complete circuit", True, (255, 255, 255))
             text_rect = text.get_rect(midtop=(self.original_pos.x, cage_rect.bottom + 8))
-
-            # Fondo con alpha para que se lea bien
-            bg_surf = pygame.Surface((text_rect.width + 10, text_rect.height + 6), pygame.SRCALPHA)
-            pygame.draw.rect(bg_surf, (0, 0, 0, 180), bg_surf.get_rect(), border_radius=6)
-            screen.blit(bg_surf, (text_rect.x - 5, text_rect.y - 3))
             screen.blit(text, text_rect)
 
     def get_access_rect(self):
