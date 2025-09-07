@@ -26,29 +26,43 @@ class LevelSelectionScreen(Screen):
         self.instructions_button.text_rect = self.instructions_button.text_surface.get_rect(
             center=self.instructions_button.rect.center
         )
-        # ===== Imágenes de niveles =====
-        self.level_imgs = [
-            pygame.image.load("cheese.png").convert_alpha(),   # Nivel 1
-            pygame.image.load("level-2.png").convert_alpha(),  # Nivel 2
-            pygame.image.load("level-3.png").convert_alpha(),  # Nivel 3
-            pygame.image.load("level-4.png").convert_alpha(),  # Nivel 4
-            pygame.image.load("level-5.png").convert_alpha(),  # Nivel 5
+
+        # ===== Imágenes de niveles (robusto: usar fallback si falta alguna) =====
+        self.level_imgs = []
+        level_files = [
+            "cheese.png",   # Nivel 1
+            "level-2.png",  # Nivel 2
+            "level-3.png",  # Nivel 3
+            "level-4.png",  # Nivel 4 (opcional)
+            "level-5.png",  # Nivel 5 (opcional)
         ]
+        fallback_surface = None
+        for fn in level_files:
+            try:
+                img = pygame.image.load(fn).convert_alpha()
+                self.level_imgs.append(img)
+                fallback_surface = img
+            except Exception:
+                if fallback_surface is None:
+                    ph = pygame.Surface((200, 200), pygame.SRCALPHA)
+                    ph.fill((80, 80, 120, 255))
+                    self.level_imgs.append(ph)
+                    fallback_surface = ph
+                else:
+                    self.level_imgs.append(fallback_surface)
 
         # ===== Tamaños por botón (W, H) — achicados para no superponer en hover =====
-        # Fila 1 (niveles 1-2-3)
-        row1_sizes = [(180, 150), (210, 200), (290, 240)]
-        # Fila 2 (niveles 4-5)
-        row2_sizes = [(320, 260), (410, 280)]
+        row1_sizes = [(180, 150), (210, 200), (290, 240)]   # Fila 1 (niveles 1-2-3)
+        row2_sizes = [(320, 260), (410, 280)]               # Fila 2 (niveles 4-5)
+        self.row1_sizes = row1_sizes
+        self.row2_sizes = row2_sizes
 
         # ===== Layout =====
         center_y = game.HEIGHT // 2
-        row_gap_y = 500         # separación vertical entre filas
         row1_y = center_y - 100
         row2_y = center_y + 230
-
-        edge_gap_row1 = 140     # separación horizontal en fila 1
-        edge_gap_row2 = 160     # separación horizontal en fila 2
+        self.edge_gap_row1 = 140
+        self.edge_gap_row2 = 160
 
         self.level_buttons = []
 
@@ -63,8 +77,8 @@ class LevelSelectionScreen(Screen):
                 btn = Button(
                     cx, y,
                     w, h,
-                    text="",                # sin texto, la imagen manda
-                    image=level_imgs[len(self.level_buttons) + i],  # la imagen correspondiente
+                    text="",
+                    image=self.level_imgs[len(self.level_buttons) + i],
                     scale=1.0
                 )
                 buttons.append(btn)
@@ -72,8 +86,8 @@ class LevelSelectionScreen(Screen):
             return buttons
 
         # Crear filas
-        self.level_buttons.extend(layout_row(row1_sizes, row1_y, edge_gap_row1))  # niveles 1..3
-        self.level_buttons.extend(layout_row(row2_sizes, row2_y, edge_gap_row2))  # niveles 4..5
+        self.level_buttons.extend(layout_row(row1_sizes, row1_y, self.edge_gap_row1))  # niveles 1..3
+        self.level_buttons.extend(layout_row(row2_sizes, row2_y, self.edge_gap_row2))  # niveles 4..5
 
         # Mostrar cursor
         pygame.mouse.set_visible(True)
@@ -128,38 +142,51 @@ class LevelSelectionScreen(Screen):
             self.game.change_screen(SplashScreen(self.game))
 
     def _layout_buttons(self):
-        """Posicionar botones centrados horizontalmente con sus tamaños propios."""
+        """Posicionar botones en 2 filas centradas, respetando tamaños por fila."""
         game = self.game
-        # Fondo reescalado a tamaño lógico
+        # Reescalar fondo a tamaño lógico
         self.bg = pygame.transform.smoothscale(self.bg_raw, (game.WIDTH, game.HEIGHT))
-        edge_gap = 150
+
+        # Recalcular posiciones base de filas
         center_y = game.HEIGHT // 2
-        total_w = sum(w for (w, h) in self.level_sizes) + edge_gap * (len(self.level_sizes) - 1)
-        left_x = game.WIDTH // 2 - total_w // 2
-        if not self.level_buttons:
-            x_cursor = left_x
-            for i, (w, h) in enumerate(self.level_sizes):
-                cx = x_cursor + w // 2
-                btn = Button(
-                    cx, center_y,
-                    w, h,
-                    text="",
-                    image=self.level_imgs[i],
-                    scale=1.0
-                )
-                self.level_buttons.append(btn)
-                x_cursor += w + edge_gap
-        else:
-            x_cursor = left_x
-            for btn, (w, h) in zip(self.level_buttons, self.level_sizes):
-                # Actualizar tamaño y posición
-                btn.rect.size = (w, h)
-                if hasattr(btn, 'original_rect') and btn.original_rect:
-                    btn.original_rect.size = (w, h)
-                btn.rect.center = (x_cursor + w // 2, center_y)
-                if hasattr(btn, 'original_rect') and btn.original_rect:
-                    btn.original_rect.center = btn.rect.center
-                # Re-escalar imagen base a su nuevo tamaño
-                if hasattr(btn, 'original_image') and btn.original_image is not None:
-                    btn.image = pygame.transform.scale(btn.original_image, (w, h))
-                x_cursor += w + edge_gap
+        row1_y = center_y - 100
+        row2_y = center_y + 230
+
+        # Distribución Fila 1
+        total_w1 = sum(w for (w, h) in self.row1_sizes) + self.edge_gap_row1 * (len(self.row1_sizes) - 1)
+        left_x1 = game.WIDTH // 2 - total_w1 // 2
+        x_cursor = left_x1
+        for i, (w, h) in enumerate(self.row1_sizes):
+            idx = i
+            if idx >= len(self.level_buttons):
+                break
+            btn = self.level_buttons[idx]
+            btn.rect.size = (w, h)
+            if hasattr(btn, 'original_rect') and btn.original_rect:
+                btn.original_rect.size = (w, h)
+            btn.rect.center = (x_cursor + w // 2, row1_y)
+            if hasattr(btn, 'original_rect') and btn.original_rect:
+                btn.original_rect.center = btn.rect.center
+            if hasattr(btn, 'original_image') and btn.original_image is not None:
+                btn.image = pygame.transform.scale(btn.original_image, (w, h))
+            x_cursor += w + self.edge_gap_row1
+
+        # Distribución Fila 2
+        start_idx = len(self.row1_sizes)
+        total_w2 = sum(w for (w, h) in self.row2_sizes) + self.edge_gap_row2 * (len(self.row2_sizes) - 1)
+        left_x2 = game.WIDTH // 2 - total_w2 // 2
+        x_cursor = left_x2
+        for i, (w, h) in enumerate(self.row2_sizes):
+            idx = start_idx + i
+            if idx >= len(self.level_buttons):
+                break
+            btn = self.level_buttons[idx]
+            btn.rect.size = (w, h)
+            if hasattr(btn, 'original_rect') and btn.original_rect:
+                btn.original_rect.size = (w, h)
+            btn.rect.center = (x_cursor + w // 2, row2_y)
+            if hasattr(btn, 'original_rect') and btn.original_rect:
+                btn.original_rect.center = btn.rect.center
+            if hasattr(btn, 'original_image') and btn.original_image is not None:
+                btn.image = pygame.transform.scale(btn.original_image, (w, h))
+            x_cursor += w + self.edge_gap_row2
