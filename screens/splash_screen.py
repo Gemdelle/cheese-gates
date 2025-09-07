@@ -73,10 +73,14 @@ class SplashScreen(Screen):
                 elif option == "settings":
                     from .settings_screen import SettingsScreen
                     self.game.change_screen(SettingsScreen(self.game))
+                elif option == "tutorial":  # <-- NUEVO
+                    from .tutorial_screen import TutorialScreen
+                    self.game.change_screen(TutorialScreen(self.game, bg_path="tutorial-bg.png"))
                 elif option == "exit":
                     pygame.quit()
                     import sys
                     sys.exit()
+
         else:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and self.show_press_enter:
                 self.text_visible = False
