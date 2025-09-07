@@ -6,7 +6,11 @@ from entities.input_zone import InputZone
 from entities.logic_circuit import LogicCircuit
 from entities.cheese import Cheese
 from ui.pause_modal import PauseModal
-from ui.button import Button  # <-- NUEVO
+from ui.button import Button
+
+# Lógica de niveles (AND/OR/NOT)
+from logic.level_logic import LEVELS, evaluate_level
+
 
 class GameScreen(Screen):
     def __init__(self, game, level=1):
@@ -15,64 +19,61 @@ class GameScreen(Screen):
         self.pause_modal = None
         self.level_complete = False
 
-        # Background (scaled if needed)
+        # Background
         background_raw = pygame.image.load("level-bg.png").convert()
         if background_raw.get_width() != game.WIDTH or background_raw.get_height() != game.HEIGHT:
             self.background = pygame.transform.smoothscale(background_raw, (game.WIDTH, game.HEIGHT))
         else:
             self.background = background_raw
 
-        # Define game zones based on the image description
+        # Zonas
         self.setup_game_zones()
 
-        # Initialize player in the center of the playable area
+        # Player
         player_start_x = self.playable_area.centerx
         player_start_y = self.playable_area.centery
         self.player = Player((player_start_x, player_start_y))
 
-        # Initialize sprite groups first
+        # Sprites
         self.all_sprites = pygame.sprite.Group(self.player)
         self.stone_sprites = pygame.sprite.Group()
 
-        # Initialize game objects
+        # Objetos
         self.setup_stones()
-        self.setup_input_zones()
+        self.setup_input_zones()   # dinámico según LEVELS
         self.setup_circuit()
         self.setup_cheese()
 
-        # Add stones to sprite groups
+        # Añadir piedras a grupos
         for stone in self.stones:
             self.stone_sprites.add(stone)
             self.all_sprites.add(stone)
 
-        # Create level text
+        # Texto de nivel
         self.font = pygame.font.Font("font/BlackCastleMF.ttf", 36)
         self.level_text = self.font.render(f"Level {level}", True, (255, 255, 255))
         self.level_text_rect = self.level_text.get_rect(topleft=(20, 20))
 
-        # ======= TIMER BAR (centrada, 1 minuto) =======
-        self.time_limit = 60.0      # (para test) poné 60.0 para 1 minuto
+        # ======= TIMER BAR =======
+        self.time_limit = 60.0
         self.time_left  = self.time_limit
 
-        self.bar_size      = (580, 50)     # (ancho, alto) del marco de la barra
-        self.bar_padding   = 15            # padding interno para el fill
-        self.bar_bg_color  = (40, 40, 40)  # fondo del área vacía (dentro del marco)
-        self.bar_fill_color = (255, 246, 170)  # amarillo pastel, a juego con el texto
+        self.bar_size       = (580, 50)
+        self.bar_padding    = 15
+        self.bar_bg_color   = (40, 40, 40)
+        self.bar_fill_color = (255, 246, 170)
 
-        # Rect centrado para la barra
         self.bar_rect = pygame.Rect(0, 0, *self.bar_size)
         self.bar_rect.center = (self.game.WIDTH // 2, 100)
 
-        # Imagen del marco
         bar_frame_raw = pygame.image.load("bar.png").convert_alpha()
         self.bar_frame = pygame.transform.smoothscale(bar_frame_raw, self.bar_size)
 
-        # Texto mm:ss a la derecha
         self.time_font  = pygame.font.Font("font/BlackCastleMF.ttf", 28)
         self.time_color = (255, 246, 170)
-        # ==============================================
+        # =========================
 
-        # ======= SOLVE BUTTON (arriba derecha) =======
+        # ======= Botón Solve (trampa) =======
         self.force_solved = False
         btn_skin = pygame.image.load("button.png").convert_alpha()
         btn_w, btn_h = 160, 60
@@ -85,26 +86,41 @@ class GameScreen(Screen):
             image=btn_skin,
             scale=1.0
         )
-        # Ajustar fuente/color del botón para que matchee UI
         self.solve_button.font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
         self.solve_button.text_color = (255, 246, 170)
         self.solve_button.text_surface = self.solve_button.font.render("Solve", True, self.solve_button.text_color)
         self.solve_button.text_rect = self.solve_button.text_surface.get_rect(center=self.solve_button.rect.center)
+        # ====================================
+
+        # ======= TEST ZONE (evalúa al pisarla) =======
+        self.test_zone_size = (160, 80)
+        self.test_zone_rect = pygame.Rect(0, 0, *self.test_zone_size)
+        self.test_zone_rect.bottomright = (self.playable_area.right - 20, self.playable_area.bottom - 20)
+        self.test_zone_color = (70, 150, 90)
+        self.test_zone_border = (255, 255, 255)
+        self.test_label_font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
+        self.test_label_color = (255, 246, 170)
+        self._was_in_test_zone = False
         # ==============================================
 
-        # Hide cursor for game
+        # ======= Resultado cacheado (SOLO tras testear) =======
+        num_inputs_cfg = len(LEVELS[self.level]["inputs"])
+        self.current_bits = [0] * num_inputs_cfg
+        self.last_eval_complete = False
+        self.has_tested = False           # <-- CLAVE: hasta que no pise TEST, no mostramos nada
+        # =======================================================
+
+        # Cursor
         pygame.mouse.set_visible(False)
 
     def setup_game_zones(self):
-        """Definir las zonas del juego basadas en la descripción"""
         self.playable_area = pygame.Rect(120, 150, 1680, 800)
-        self.stones_area = pygame.Rect(120, 150, 600, 150)
-        self.input_area = pygame.Rect(120, 300, 300, 700)
-        self.circuit_area = pygame.Rect(600, 300, 600, 400)
-        self.reward_area = pygame.Rect(1400, 400, 200, 200)
+        self.stones_area   = pygame.Rect(120, 150, 600, 150)
+        self.input_area    = pygame.Rect(120, 300, 300, 700)
+        self.circuit_area  = pygame.Rect(600, 300, 600, 400)
+        self.reward_area   = pygame.Rect(1400, 400, 200, 200)
 
     def setup_stones(self):
-        """Crear las piedras con diferentes pesos"""
         self.stones = []
         stone_weights = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         stones_per_row = 6
@@ -120,31 +136,42 @@ class GameScreen(Screen):
             self.stones.append(stone)
 
     def setup_input_zones(self):
-        """Crear las zonas de input para las piedras"""
+        """Crea las zonas de input según la cantidad en LEVELS[level]."""
         self.input_zones = []
-        num_inputs = 6
-        input_spacing = 100
-        for i in range(num_inputs):
+        cfg_inputs = LEVELS[self.level]["inputs"]
+        num_inputs = len(cfg_inputs)
+
+        # Espaciado vertical uniforme dentro del área de inputs
+        input_spacing = self.input_area.height // (num_inputs + 1 if num_inputs > 0 else 1)
+
+        for i, rule in enumerate(cfg_inputs):
             x = self.input_area.centerx
             y = self.input_area.top + input_spacing * (i + 1)
-            input_zone = InputZone((x, y), i + 1)
+
+            # Si es NOT (invert=True), el requerido para UI es 0; si no, el threshold real
+            required = 0 if rule.get("invert", False) else int(rule.get("threshold", 0))
+
+            input_zone = InputZone((x, y), i + 1, required=required)
             self.input_zones.append(input_zone)
 
     def setup_circuit(self):
-        """Crear el circuito lógico"""
-        circuit_center = (self.circuit_area.centerx, self.circuit_area.centery)
-        self.logic_circuit = LogicCircuit(circuit_center)
+        """Crear el circuito lógico con fondo por nivel."""
+        cfg = LEVELS.get(self.level, {})
+        bg_path = cfg.get("circuit_bg")  # e.g., "level_1.png"
+
+        # Pasamos el rect completo (posición y tamaño) + el fondo
+        self.logic_circuit = LogicCircuit(self.circuit_area, circuit_bg_path=bg_path)
+
+        # Conectar las zonas de input al circuito
         for input_zone in self.input_zones:
             self.logic_circuit.add_input_zone(input_zone)
 
     def setup_cheese(self):
-        """Crear el queso (recompensa)"""
         cheese_pos = (self.reward_area.centerx, self.reward_area.centery)
         self.cheese = Cheese(cheese_pos)
         self.all_sprites.add(self.cheese)
 
     def constrain_player_movement(self):
-        """Restringir el movimiento del jugador a la zona azul"""
         half_w, half_h = self.player.rect.width / 2, self.player.rect.height / 2
         self.player.pos.x = max(self.playable_area.left + half_w,
                                 min(self.player.pos.x, self.playable_area.right - half_w))
@@ -159,7 +186,6 @@ class GameScreen(Screen):
                 self.player.pos.x = self.circuit_area.right + half_w
 
     def handle_stone_interactions(self):
-        """Manejar las interacciones del jugador con las piedras"""
         player_pos = self.player.pos
         if not self.player.carried_stone:
             for stone in self.stones:
@@ -172,141 +198,161 @@ class GameScreen(Screen):
                     pass
 
     def handle_cheese_collection(self):
-        """Manejar la recolección del queso"""
         if self.cheese.can_be_collected_by(self.player.pos):
             if self.cheese.collect():
                 self.level_complete = True
 
+    def _maybe_run_test(self):
+        """Evalúa el nivel SOLO cuando el jugador entra a la zona de test."""
+        half_w, half_h = self.player.rect.width / 2, self.player.rect.height / 2
+        player_rect = pygame.Rect(self.player.pos.x - half_w, self.player.pos.y - half_h,
+                                  self.player.rect.width, self.player.rect.height)
+        inside_now = player_rect.colliderect(self.test_zone_rect)
+
+        if inside_now and not self._was_in_test_zone:
+            # Entró recién → evaluar
+            is_complete, bits = evaluate_level(self.level, self.input_zones)
+            self.current_bits = bits
+            self.last_eval_complete = is_complete
+            self.logic_circuit.is_complete = self.last_eval_complete
+            self.has_tested = True   # <-- ahora SÍ podemos mostrar el resultado/bits
+
+        self._was_in_test_zone = inside_now
+
     def update(self, dt):
         if self.pause_modal:
             self.pause_modal.update(dt)
+            return
+
+        # Timer
+        if self.time_left > 0.0:
+            self.time_left = max(0.0, self.time_left - dt)
+
+        # Lose
+        if self.time_left <= 0.0 and not self.level_complete:
+            from .lose_screen import LoseScreen
+            self.game.change_screen(LoseScreen(self.game, level=self.level, bg_path="lose-bg.png"))
+            return
+
+        # Sprites
+        self.all_sprites.update(dt, self.playable_area)
+        self.constrain_player_movement()
+
+        # Circuit (animación interna)
+        self.logic_circuit.update(dt)
+
+        # Solve forzado
+        if self.force_solved:
+            self.last_eval_complete = True
+        self.logic_circuit.is_complete = self.last_eval_complete
+
+        # Cheese según estado del circuito
+        self.cheese.update(dt, self.playable_area, self.logic_circuit.is_complete)
+
+        # Interacciones
+        self.handle_stone_interactions()
+        self.handle_cheese_collection()
+
+        # Win
+        if self.level_complete:
+            from .win_screen import WinScreen
+            self.game.change_screen(WinScreen(self.game, level=self.level, bg_path="win-bg.png", max_level=4))
+            return
+
+        # Botón Solve (coords lógicas por si usás escalado)
+        wx, wy = pygame.mouse.get_pos()
+        scale = getattr(self.game, "render_scale", 1.0) or 1.0
+        x_off, y_off = getattr(self.game, "render_offset", (0, 0))
+        if scale > 0:
+            lx = int((wx - x_off) / scale)
+            ly = int((wy - y_off) / scale)
         else:
-            # Timer
-            if self.time_left > 0.0:
-                self.time_left = max(0.0, self.time_left - dt)
-
-            # Lose check
-            if self.time_left <= 0.0 and not self.level_complete:
-                from .lose_screen import LoseScreen
-                self.game.change_screen(LoseScreen(self.game, level=self.level, bg_path="lose-bg.png"))
-                return
-
-            # Sprites
-            self.all_sprites.update(dt, self.playable_area)
-
-            # Constrain movement
-            self.constrain_player_movement()
-
-            # Circuit update
-            self.logic_circuit.update(dt)
-
-            # === Forzar circuito resuelto si activaste "Solve" ===
-            if self.force_solved:
-                # Si el circuito recalcula por su cuenta, pisamos el flag acá cada frame
-                self.logic_circuit.is_complete = True
-
-            # Cheese update con el estado final del circuito
-            circuit_complete = self.logic_circuit.is_complete
-            self.cheese.update(dt, self.playable_area, circuit_complete)
-
-            # Interacciones
-            self.handle_stone_interactions()
-            self.handle_cheese_collection()
-
-            # Win check
-            if self.level_complete:
-                from .win_screen import WinScreen
-                self.game.change_screen(WinScreen(self.game, level=self.level, bg_path="win-bg.png", max_level=3))
-                return
-
-            # Botones UI (solo cuando no está el pause) usando coords lógicas
-            wx, wy = pygame.mouse.get_pos()
-            scale = getattr(self.game, "render_scale", 1.0) or 1.0
-            x_off, y_off = getattr(self.game, "render_offset", (0, 0))
-            if scale > 0:
-                lx = int((wx - x_off) / scale)
-                ly = int((wy - y_off) / scale)
-            else:
-                lx, ly = wx, wy
+            lx, ly = wx, wy
+        try:
             self.solve_button.update(dt, (lx, ly))
+        except TypeError:
+            self.solve_button.update(dt)
+
+        # TEST zone
+        self._maybe_run_test()
 
     def draw(self):
         self.screen.blit(self.background, (0, 0))
 
-    # Zonas de debug ocultas: no dibujar contenedores/contornos en gameplay
-    # (Si necesitas depurar, reactivar temporalmente estas líneas)
-    # pygame.draw.rect(self.screen, (0, 255, 255), self.playable_area, 2)
-    # pygame.draw.rect(self.screen, (255, 255, 0), self.stones_area, 2)
-    # pygame.draw.rect(self.screen, (0, 255, 0), self.input_area, 2)
-    # pygame.draw.rect(self.screen, (255, 0, 0), self.circuit_area, 2)
-    # pygame.draw.rect(self.screen, (255, 0, 255), self.reward_area, 2)
-
-        # Dibujar zonas de input
+        # Input zones
         for input_zone in self.input_zones:
             input_zone.draw(self.screen)
 
-        # Dibujar circuito lógico
+        # Circuit
         self.logic_circuit.draw(self.screen)
 
-        # Dibujar sprites (piedras, jugador, queso)
+        # Sprites
         self.all_sprites.draw(self.screen)
-
-        # Si el jugador lleva una piedra, dibujarla por encima de todo (Funciona nice)
         if self.player.carried_stone:
-            stone = self.player.carried_stone
-            # El rect ya está sincronizado en su update; re-blit para asegurar z-order
-            self.screen.blit(stone.image, stone.rect)
+            self.screen.blit(self.player.carried_stone.image, self.player.carried_stone.rect)
 
-        # Dibujar queso con efectos especiales
+        # Cheese FX
         self.cheese.draw(self.screen)
 
-        # ======= TIMER BAR (frame debajo, relleno arriba y CLIP interno) =======
+        # ===== Timer bar =====
         inner = self.bar_rect.inflate(-2*self.bar_padding, -2*self.bar_padding)
-
-        # Fondo del área vacía (dentro del marco)
         pygame.draw.rect(self.screen, self.bar_bg_color, inner, border_radius=10)
-
-        # 1) Dibujo el marco primero (queda debajo)
         self.screen.blit(self.bar_frame, self.bar_rect.topleft)
-
-        # 2) Relleno amarillo por encima, recortado al área interna
         pct = max(0.0, min(1.0, self.time_left / self.time_limit)) if self.time_limit > 0 else 0.0
         fill_w = int(inner.width * pct)
         if fill_w > 0:
             prev_clip = self.screen.get_clip()
-            self.screen.set_clip(inner)  # limitar el dibujo al área interna
+            self.screen.set_clip(inner)
             fill_rect = pygame.Rect(inner.left, inner.top, fill_w, inner.height)
             pygame.draw.rect(self.screen, self.bar_fill_color, fill_rect, border_radius=8)
             self.screen.set_clip(prev_clip)
-
-        # 3) Texto del tiempo a la derecha, fuera del marco
         seconds = int(self.time_left)
         mm, ss = divmod(seconds, 60)
         time_str = f"{mm:02d}:{ss:02d}"
         time_surf = self.time_font.render(time_str, True, self.time_color)
         time_rect = time_surf.get_rect(midleft=(self.bar_rect.right + 12, self.bar_rect.centery))
         self.screen.blit(time_surf, time_rect)
-        # ==============================================
+        # =====================
 
-        # Dibujar level number
+        # Texto “Level X”
         self.screen.blit(self.level_text, self.level_text_rect)
 
-        # Dibujar información del jugador
+        # Info jugador
         self.draw_player_info()
 
-        # Draw pause modal if active
+        # ====== Mostrar resultado SOLO si se testeó ======
+        if self.has_tested:
+            bits_font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
+            bits_str = " ".join(map(str, self.current_bits))
+            bits_surf = bits_font.render(bits_str, True, (255, 255, 255))
+            bits_rect = bits_surf.get_rect(center=(self.circuit_area.centerx,
+                                                   self.circuit_area.bottom + 30))
+            self.screen.blit(bits_surf, bits_rect)
+
+            # (Opcional) Mostrar también el resultado final 0/1
+            result_font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
+            result_str = "RESULT: 1" if self.last_eval_complete else "RESULT: 0"
+            result_surf = result_font.render(result_str, True, (255, 246, 170))
+            result_rect = result_surf.get_rect(midleft=(bits_rect.right + 20, bits_rect.centery))
+            self.screen.blit(result_surf, result_rect)
+        # ==================================================
+
+        # ====== TEST zone ======
+        pygame.draw.rect(self.screen, self.test_zone_color, self.test_zone_rect, border_radius=12)
+        pygame.draw.rect(self.screen, self.test_zone_border, self.test_zone_rect, 2, border_radius=12)
+        label = self.test_label_font.render("TEST", True, self.test_label_color)
+        label_rect = label.get_rect(center=self.test_zone_rect.center)
+        self.screen.blit(label, label_rect)
+        # =======================
+
+        # Pause modal
         if self.pause_modal:
             self.pause_modal.draw(self.screen)
 
-        # Dibujar mensaje de victoria si el nivel está completo
-        if self.level_complete:
-            self.draw_victory_message()
-
-        # === DIBUJAR BOTONES UI AL FINAL (encima de todo) ===
+        # Solve al frente
         self.solve_button.draw(self.screen)
 
     def draw_player_info(self):
-        """Dibujar información sobre el estado del jugador"""
         info_font = pygame.font.Font("font/BlackCastleMF.ttf", 24)
         y_offset = 70
         if self.player.carried_stone:
@@ -317,19 +363,6 @@ class GameScreen(Screen):
             instructions = "Press SPACE near a stone to pick it up"
             text = info_font.render(instructions, True, (255, 255, 255))
             self.screen.blit(text, (20, y_offset))
-
-    def draw_victory_message(self):
-        """Dibujar mensaje de victoria"""
-        victory_font = pygame.font.Font(None, 72)
-        victory_text = victory_font.render("LEVEL COMPLETE!", True, (0, 255, 0))
-        victory_rect = victory_text.get_rect(center=(self.game.WIDTH // 2, self.game.HEIGHT // 2))
-        bg_rect = victory_rect.inflate(40, 20)
-        pygame.draw.rect(self.screen, (0, 0, 0, 180), bg_rect)
-        self.screen.blit(victory_text, victory_rect)
-        instruction_font = pygame.font.Font(None, 36)
-        instruction_text = instruction_font.render("Press ESC to continue", True, (255, 255, 255))
-        instruction_rect = instruction_text.get_rect(center=(self.game.WIDTH // 2, self.game.HEIGHT // 2 + 60))
-        self.screen.blit(instruction_text, instruction_rect)
 
     def handle_event(self, event):
         if self.pause_modal:
@@ -344,40 +377,35 @@ class GameScreen(Screen):
                 elif action == "select_level":
                     from .level_selection_screen import LevelSelectionScreen
                     self.game.change_screen(LevelSelectionScreen(self.game))
-                elif action == "tutorial":  # <-- NUEVO
+                elif action == "tutorial":
                     from .tutorial_screen import TutorialScreen
                     self.game.change_screen(TutorialScreen(self.game, bg_path="tutorial-bg.png"))
                 elif action == "exit":
                     pygame.quit()
                     import sys
                     sys.exit()
-        else:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    if self.level_complete:
-                        from .level_selection_screen import LevelSelectionScreen
-                        self.game.change_screen(LevelSelectionScreen(self.game))
-                    else:
-                        self.pause_modal = PauseModal(self.game, self.game.WIDTH // 2, self.game.HEIGHT // 2)
-                        pygame.mouse.set_visible(True)
-                elif event.key == pygame.K_SPACE:
-                    self.handle_space_interaction()
+            return
 
-        # Click en "Solve" o "Tutorial" (fuera del pause)
-        if not self.pause_modal and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.pause_modal = PauseModal(self.game.WIDTH // 2, self.game.HEIGHT // 2)
+                pygame.mouse.set_visible(True)
+            elif event.key == pygame.K_SPACE:
+                self.handle_space_interaction()
+
+        # Click “Solve” (fuera del pause)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.solve_button.rect.collidepoint(event.pos):
-                # Fuerza puzzle resuelto y gana al instante
                 self.force_solved = True
                 self.level_complete = True
                 from .win_screen import WinScreen
                 self.game.change_screen(WinScreen(self.game,
                                                   level=self.level,
                                                   bg_path="win-bg.png",
-                                                  max_level=3))
+                                                  max_level=4))
                 return
 
     def handle_space_interaction(self):
-        """Manejar la interacción con SPACE (recoger/soltar piedras)"""
         if self.player.carried_stone:
             drop_zone = None
             player_pos = self.player.pos
