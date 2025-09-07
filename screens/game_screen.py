@@ -394,13 +394,6 @@ class GameScreen(Screen):
             self.screen.blit(result_surf, result_rect)
         # ==================================================
 
-        # ====== TEST zone con imagen ======
-        self.screen.blit(self.test_img, self.test_zone_rect.topleft)
-        label = self.test_label_font.render("TEST", True, self.test_label_color)
-        label_rect = label.get_rect(center=self.test_zone_rect.center)
-        self.screen.blit(label, label_rect)
-        # ==================================
-
         # Pause modal
         if self.pause_modal:
             self.pause_modal.draw(self.screen)
