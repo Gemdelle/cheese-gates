@@ -51,7 +51,7 @@ class GameScreen(Screen):
         self.level_text_rect = self.level_text.get_rect(topleft=(20, 20))
 
         # ======= TIMER BAR (centrada, 1 minuto) =======
-        self.time_limit = 10.0      # (para test) poné 60.0 para 1 minuto
+        self.time_limit = 60.0      # (para test) poné 60.0 para 1 minuto
         self.time_left  = self.time_limit
 
         self.bar_size      = (580, 50)     # (ancho, alto) del marco de la barra
