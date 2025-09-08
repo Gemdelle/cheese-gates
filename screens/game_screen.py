@@ -64,7 +64,7 @@ class GameScreen(Screen):
         self.color_bit_zero = (120, 0, 0)      # rojo oscuro
 
 
-# ======= TIMER BAR =======
+        # ======= TIMER BAR =======
         cfg_level = LEVELS.get(self.level, {})
         self.time_limit = float(cfg_level.get("time_limit", 60.0))  # ⬅️ toma del config (fallback 60s)
         self.time_left  = self.time_limit
@@ -86,7 +86,7 @@ class GameScreen(Screen):
         # =========================
 
 
-# ======= Botón Solve (trampa) =======
+        # ======= Botón Solve (trampa) =======
         self.force_solved = False
         btn_skin = pygame.image.load("button.png").convert_alpha()
         btn_w, btn_h = 160, 60
@@ -132,6 +132,16 @@ class GameScreen(Screen):
         self.last_eval_complete = False
         self.has_tested = False           # <-- CLAVE: hasta que no pise TEST, no mostramos nada
         # =======================================================
+
+        # Máscara de inversión de display para los inputs (solo después de TEST)
+        cfg = LEVELS.get(self.level, {})
+        mask = cfg.get("display_invert", [])
+        # Normalizamos al largo de inputs
+        if len(mask) < len(self.current_bits):
+            mask = list(mask) + [False] * (len(self.current_bits) - len(mask))
+        elif len(mask) > len(self.current_bits):
+            mask = mask[:len(self.current_bits)]
+        self.display_invert = mask
 
     # Cursor visible en el nivel
     pygame.mouse.set_visible(True)
@@ -428,12 +438,12 @@ class GameScreen(Screen):
         return self.input_area.centery
 
     def draw_input_bit_badges(self):
-        # Muestra 0/1 a la izquierda de cada InputZone con color por bit
+        # Muestra 0/1 a la izquierda de cada InputZone con color por bit.
+        # Si el nivel define display_invert[i] == True, invertimos SOLO si ya se presionó TEST.
         x_left = self.input_area.left - 40
         for i, zone in enumerate(self.input_zones):
-            bit = 0
-            if 0 <= i < len(self.current_bits):
-                bit = self.current_bits[i]
+            raw_bit = self.current_bits[i] if i < len(self.current_bits) else 0
+            bit = (1 - raw_bit) if (self.has_tested and i < len(self.display_invert) and self.display_invert[i]) else raw_bit
             color = self.color_bit_one if bit == 1 else self.color_bit_zero
             y = self._zone_center_y(zone)
             surf = self.badge_font.render(str(bit), True, color)
