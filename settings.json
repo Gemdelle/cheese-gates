@@ -2,6 +2,5 @@
   "resolution": "800x600",
   "window_mode": "Pantalla Completa",
   "music": "On",
-  "sfx": "On",
-  "colorblind_mode": "On"
+  "sfx": "On"
 }

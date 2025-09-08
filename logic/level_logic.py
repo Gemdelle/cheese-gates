@@ -1,87 +1,123 @@
 # level_logic.py
 # -----------------------------------------------------------------------------
 # Configuración y evaluación de niveles / lógica (AND, OR, NOT).
-# Usá este archivo para definir cuántas piedras requiere cada input y
-# cómo se conectan las compuertas por nivel.
+# Además, define qué piedras (pesos) spawnean por nivel.
 # -----------------------------------------------------------------------------
 
 from typing import Any, Dict, List, Tuple
+
+# Si un nivel no especifica "stones", se usa este default
+DEFAULT_STONES: List[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
 # -----------------------------------------------------------------------------
 # ESTRUCTURA DE CONFIGURACIÓN
 # -----------------------------------------------------------------------------
 # - "inputs": lista por nivel, un dict por input:
 #       { "threshold": int, "invert": bool }
-#     * Si invert=True → es un NOT: ese input vale 1 SOLO si el total de piedras es 0.
-#       (En ese caso se ignora threshold).
-#     * Si invert=False → vale 1 si total_piedras >= threshold.
+#     * invert=True → NOT: vale 1 SOLO si total_piedras == 0 (ignora threshold).
+#     * invert=False → vale 1 si total_piedras >= threshold.
 #
-# - "circuit": árbol de compuertas con la forma:
+# - "circuit": árbol de compuertas:
 #       {"op": "AND"|"OR"|"NOT", "args": [subnodos...]}
-#     Donde un "subnodo" puede ser:
-#       - un índice de input (0, 1, 2, ...) para referenciar el bit de ese input
-#       - otro diccionario compuesto {"op": ..., "args": [...]}
+#     subnodo: índice de input (0,1,2,...) o diccionario anidado {"op":...}
 #
-# EJEMPLOS:
-#   {"op": "OR",  "args": [0, 1]}                         # input0 OR input1
-#   {"op": "AND", "args": [0, 1]}                         # input0 AND input1
-#   {"op": "AND", "args": [ {"op":"NOT","args":[0]}, 1 ]} # (NOT input0) AND input1
+# - "circuit_bg": ruta de la imagen de fondo del circuito para ese nivel.
 #
-# NOTA: Ajustá "inputs" y "circuit" por nivel a tu gusto; acá hay placeholders.
+# - "stones": lista de pesos de piedras que spawnean en el nivel
+#     (por ejemplo [1,2,3,4,5,6,7,8,9,10,11,12]).
+# -----------------------------------------------------------------------------
 
 LEVELS: Dict[int, Dict[str, Any]] = {
     1: {
-        # Cantidad de inputs que tenga tu circuito en el nivel 1 (editalo a gusto)
         "inputs": [
             {"threshold": 6, "invert": False},
             {"threshold": 3, "invert": False},
         ],
-        # Lógica del nivel 1: con OR alcanza con que 1 cumpla.
         "circuit": {"op": "OR", "args": [0, 1]},
-        "circuit_bg": "circuit-1.png"
+        "circuit_bg": "circuit-1.png",
+        "stones": [1, 4, 2, 1],  # editá a gusto
+        "time_limit": 60.0
     },
     2: {
-        # Ejemplo: 3 inputs, uno invertido (NOT)
+        # 4 inputs con los thresholds de la imagen: /3, /4, /6, /8
         "inputs": [
-            {"threshold": 5, "invert": False},
-            {"threshold": 0, "invert": True},   # NOT: vale 1 si no hay piedras
-            {"threshold": 8, "invert": False},
+            {"threshold": 3, "invert": False},  # I0
+            {"threshold": 4, "invert": False},  # I1
+            {"threshold": 6, "invert": False},  # I2
+            {"threshold": 8, "invert": False},  # I3
         ],
-        # (NOT input1) AND (input0 OR input2)
+        # (I0 OR I1) AND (I2 OR I3)
         "circuit": {
             "op": "AND",
             "args": [
-                {"op": "NOT", "args": [1]},
-                {"op": "OR",  "args": [0, 2]}
+                {"op": "OR", "args": [0, 1]},
+                {"op": "OR", "args": [2, 3]}
             ]
-        }
+        },
+        # Fondo del circuito para este nivel
+        "circuit_bg": "circuit-2.png",
+
+        # Piedras disponibles según la tira de la imagen (① ② ① ② ④ ①)
+        # Ajustá si querés más/menos unidades.
+        "stones": [1, 2, 1, 2, 4, 1],
+
+        # Tiempo para resolver (va a la barra del GameScreen)
+        "time_limit": 60.0
     },
     3: {
-        # 2 inputs más exigentes
+        # Umbrales según la imagen: /5, /2 (NOT), /3 (NOT), /6
         "inputs": [
-            {"threshold": 10, "invert": False},
-            {"threshold": 6,  "invert": False},
+            {"threshold": 5, "invert": False},  # I0
+            {"threshold": 2, "invert": True},   # I1  ← NOT (vale 1 sólo si hay 0 piedras)
+            {"threshold": 3, "invert": True},   # I2  ← NOT
+            {"threshold": 6, "invert": False},  # I3
         ],
-        # input0 AND input1
-        "circuit": {"op": "AND", "args": [0, 1]}
+        # Estructura: (I0 OR I1) AND (I2 AND I3)
+        # OJO: como los NOT ya están modelados con invert=True arriba,
+        # acá NO vuelvas a poner NOT en el árbol (evitás doble negación).
+        "circuit": {
+            "op": "AND",
+            "args": [
+                {"op": "OR",  "args": [0, 1]},
+                {"op": "AND", "args": [2, 3]}
+            ]
+        },
+
+        # Fondo del circuito para este nivel
+        "circuit_bg": "circuit-3.png",
+
+        # Piedras disponibles (① ② ① ① ② ④)
+        "stones": [1, 2, 1, 1, 2, 4],
+
+        # Tiempo para resolver (barra)
+        "time_limit": 60.0
     },
     4: {
-        # 3 inputs con umbrales parejos
         "inputs": [
             {"threshold": 4, "invert": False},
             {"threshold": 4, "invert": False},
             {"threshold": 4, "invert": False},
         ],
-        # (input0 AND input1) OR (input1 AND input2)
         "circuit": {
             "op": "OR",
             "args": [
                 {"op": "AND", "args": [0, 1]},
                 {"op": "AND", "args": [1, 2]}
             ]
-        }
+        },
+        "circuit_bg": "circuit-4.png",
+        "stones": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        "time_limit": 60.0
     },
 }
+
+# -----------------------------------------------------------------------------
+# HELPERS
+# -----------------------------------------------------------------------------
+
+def get_stone_weights(level_num: int) -> List[int]:
+    """Devuelve la lista de pesos de piedras que spawnean en el nivel."""
+    return list(LEVELS.get(level_num, {}).get("stones", DEFAULT_STONES))
 
 # -----------------------------------------------------------------------------
 # EVALUACIÓN
@@ -100,21 +136,17 @@ def _bit_from_weight(total_weight: int, rule: Dict[str, Any]) -> int:
 
 def _eval_node(node: Any, bits: List[int]) -> int:
     """Evalúa recursivamente el árbol de la compuerta, devolviendo 0/1."""
-    # Si el nodo es un índice de input (ej. 0, 1, 2...)
     if isinstance(node, int):
         return bits[node]
 
-    # Si es un dict con {op, args}
     if isinstance(node, dict):
         op = str(node.get("op", "")).upper()
         args = node.get("args", [])
 
         if op == "NOT":
-            # NOT es unario
             val = _eval_node(args[0], bits)
             return 1 - val
 
-        # Para AND/OR evaluamos todos los hijos primero
         vals = [_eval_node(arg, bits) for arg in args]
 
         if op == "AND":
@@ -130,12 +162,11 @@ def _eval_node(node: Any, bits: List[int]) -> int:
 def compute_input_bits(level_num: int, weights: List[int]) -> List[int]:
     """
     A partir de los pesos totales por input (sumando piedras en cada caja),
-    devuelve la lista de bits (0/1) aplicando threshold o NOT según el config del nivel.
+    devuelve los bits (0/1) aplicando threshold o NOT según el config del nivel.
     """
     cfg = LEVELS[level_num]
     rules = cfg["inputs"]
     if len(weights) < len(rules):
-        # Podés preferir lanzar error; acá simplemente completamos con ceros.
         weights = list(weights) + [0] * (len(rules) - len(weights))
     return [_bit_from_weight(w, rules[i]) for i, w in enumerate(weights)]
 
