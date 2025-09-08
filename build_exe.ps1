@@ -1,14 +1,37 @@
-# Builds a standalone Windows .exe with PyInstaller
-# Usage: Run this script in PowerShell from the repo root
+param(
+    [ValidateSet('release','fast','dev')]
+    [string]$Mode = 'release',
+    [switch]$SkipDeps,
+    [string]$Icon
+)
+
+# Builds a Windows package with PyInstaller
+# Modes:
+#   release (default): clean build, onefile EXE, install deps
+#   fast:              reuse cache, onefile EXE, skip deps by default (useful for quick rebuilds)
+#   dev:               reuse cache, onedir folder (fastest), skip deps by default
+# Usage examples:
+#   .\build_exe.ps1                              # full release build
+#   .\build_exe.ps1 -Mode fast -SkipDeps         # quicker onefile build (no clean)
+#   .\build_exe.ps1 -Mode dev  -SkipDeps         # fastest onedir build for local testing
+#   .\build_exe.ps1 -Icon .\icon.ico            # release with custom icon
 
 $ErrorActionPreference = 'Stop'
 
 # Ensure we're at the script location (repo root)
 Set-Location -Path $PSScriptRoot
 
-# Create a clean dist/build
-if (Test-Path build) { Remove-Item -Recurse -Force build }
-if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+# Determine behavior by mode
+$isRelease = ($Mode -eq 'release')
+$isFast    = ($Mode -eq 'fast')
+$isDev     = ($Mode -eq 'dev')
+
+# Cleaning policy
+$doClean = $isRelease
+if ($doClean) {
+    if (Test-Path build) { Remove-Item -Recurse -Force build }
+    if (Test-Path dist)  { Remove-Item -Recurse -Force dist }
+}
 
 function Resolve-PythonPath {
     # 1) Prefer local venv
@@ -58,58 +81,57 @@ if (-not (Test-Path .\venv\Scripts\python.exe)) {
 Write-Host "Using Python: $python"
 
 # Instalar dependencias
-& "$python" -m pip install --upgrade pip
-& "$python" -m pip install -r requirements.txt
+# - release: siempre instala
+# - fast/dev: por defecto NO instala; usa -SkipDeps:$false para forzar instalación
+if ($isRelease -or ($SkipDeps.IsPresent -and -not $SkipDeps)) {
+    & "$python" -m pip install --upgrade pip
+    & "$python" -m pip install -r requirements.txt
+} else {
+    Write-Host "Skipping dependency install (SkipDeps)." -ForegroundColor Yellow
+}
 
-# Collect data files (top-level images/fonts + assets and audio folders)
+# Collect data files (auto-add new top-level images + known folders)
 # PyInstaller --add-data needs src;dest with ; on Windows
 $datas = @(
-    "background.jpg;.",
-    "bar.png;.",
-    "box.png;.",
-    "button.png;.",
-    "cage.png;.",
-    "character-moving.png;.",
-    "character-standing.png;.",
-    "cheese.png;.",
-    "circuit-1.png;.",
-    "circuit-2.png;.",
-    "circuit-3.png;.",
-    "circuit-4.png;.",
-    "level-1.png;.",
-    "level-2.png;.",
-    "level-3.png;.",
-    "level-4.png;.",
-    "level-5.png;.",
-    "level-bg.png;.",
-    "level-selection-bg.png;.",
-    "lose-bg.png;.",
-    "platform.png;.",
-    "rock-big.png;.",
-    "rock-small.png;.",
-    "splash.png;.",
-    "summary-instructions.png;.",
-    "tutorial-bg.png;.",
-    "win-bg.png;.",
     "font;font",
     "assets;assets",
     "audio\\audio_config.json;audio"
 )
 
+# Auto-include any image files at repo root
+$rootImageExts = @('*.png','*.jpg','*.jpeg','*.gif','*.bmp','*.webp')
+try {
+    $rootImages = Get-ChildItem -Path $PSScriptRoot -File -Include $rootImageExts -Name -ErrorAction SilentlyContinue
+    foreach ($f in $rootImages) {
+        $datas += "${f};."
+    }
+} catch {}
+
 # Assemble args
 $addDataArgs = @()
 foreach ($d in $datas) { $addDataArgs += @('--add-data', $d) }
 
-# Optional: custom icon (uncomment and set if you add one)
+# Optional: custom icon
 $iconArg = @()
-# $iconArg = @('--icon', 'icon.ico')
+if ($Icon) { $iconArg = @('--icon', $Icon) }
+
+# Bundle mode
+$bundleArg = @('--onefile')
+if ($isDev) { $bundleArg = @('--onedir') }
+
+# Clean arg
+$cleanArg = @()
+if ($doClean) { $cleanArg = @('--clean') }
+
+# Name
+$appName = if ($isDev) { 'CheeseGates-Dev' } else { 'CheeseGates' }
 
 # Build
 & "$python" -m PyInstaller `
     --noconfirm `
-    --clean `
-    --name "CheeseGates" `
-    --onefile `
+    @cleanArg `
+    --name $appName `
+    @bundleArg `
     --windowed `
     @iconArg `
     @addDataArgs `
@@ -119,4 +141,10 @@ if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller build failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "Build complete. EXE at: dist/CheeseGates.exe"
+if ($isDev) {
+    Write-Host "Build complete. App folder at: dist/$appName" -ForegroundColor Green
+} elseif ($isFast) {
+    Write-Host "Build complete (fast). EXE at: dist/$appName.exe" -ForegroundColor Green
+} else {
+    Write-Host "Build complete. EXE at: dist/$appName.exe" -ForegroundColor Green
+}

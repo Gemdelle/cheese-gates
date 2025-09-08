@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('background.jpg', '.'), ('bar.png', '.'), ('box.png', '.'), ('button.png', '.'), ('cage.png', '.'), ('character-moving.png', '.'), ('character-standing.png', '.'), ('cheese.png', '.'), ('circuit-1.png', '.'), ('circuit-2.png', '.'), ('circuit-3.png', '.'), ('circuit-4.png', '.'), ('level-1.png', '.'), ('level-2.png', '.'), ('level-3.png', '.'), ('level-4.png', '.'), ('level-5.png', '.'), ('level-bg.png', '.'), ('level-selection-bg.png', '.'), ('lose-bg.png', '.'), ('platform.png', '.'), ('rock-big.png', '.'), ('rock-small.png', '.'), ('splash.png', '.'), ('summary-instructions.png', '.'), ('tutorial-bg.png', '.'), ('win-bg.png', '.'), ('font', 'font'), ('assets', 'assets'), ('audio\\\\audio_config.json', 'audio')],
+    datas=[('font', 'font'), ('assets', 'assets'), ('audio\\\\audio_config.json', 'audio'), ('background.jpg', '.'), ('bar.png', '.'), ('box.png', '.'), ('button.png', '.'), ('cage.png', '.'), ('character-moving.png', '.'), ('character-standing.png', '.'), ('cheese.png', '.'), ('circuit-1.png', '.'), ('circuit-2.png', '.'), ('circuit-3.png', '.'), ('circuit-4.png', '.'), ('final-bg.png', '.'), ('level-1.png', '.'), ('level-2.png', '.'), ('level-3.png', '.'), ('level-4.png', '.'), ('level-5.png', '.'), ('level-bg.png', '.'), ('level-selection-bg.png', '.'), ('lose-bg.png', '.'), ('platform.png', '.'), ('rock-big.png', '.'), ('rock-small.png', '.'), ('splash.png', '.'), ('summary-instructions.png', '.'), ('tutorial-bg.png', '.'), ('win-bg.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
