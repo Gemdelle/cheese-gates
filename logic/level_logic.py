@@ -110,7 +110,7 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         },
         "display_invert": [True, False, False, True, False],  # ⬅️ mostrar invertidos al test
         "circuit_bg": "circuit-4.png",
-        "stones": [1,7,1,9,2,2,1,5,7],
+        "stones": [1,7,1,9,2,2,12,5,7],
         "time_limit": 60.0,
     },
 }
