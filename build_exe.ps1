@@ -82,12 +82,13 @@ Write-Host "Using Python: $python"
 
 # Instalar dependencias
 # - release: siempre instala
-# - fast/dev: por defecto NO instala; usa -SkipDeps:$false para forzar instalación
-if ($isRelease -or ($SkipDeps.IsPresent -and -not $SkipDeps)) {
+# - fast/dev: por defecto NO instala; usa sin -SkipDeps para forzar instalación
+if ($isRelease -or -not $SkipDeps) {
+    Write-Host "Installing dependencies..."
     & "$python" -m pip install --upgrade pip
     & "$python" -m pip install -r requirements.txt
 } else {
-    Write-Host "Skipping dependency install (SkipDeps)." -ForegroundColor Yellow
+    Write-Host "Skipping dependency install (SkipDeps enabled)." -ForegroundColor Yellow
 }
 
 # Collect data files (auto-add new top-level images + known folders)
