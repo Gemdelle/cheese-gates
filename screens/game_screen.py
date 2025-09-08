@@ -8,6 +8,7 @@ from entities.cheese import Cheese
 from ui.pause_modal import PauseModal
 from ui.settings_modal import SettingsModal
 from ui.button import Button
+from logic.level_logic import get_stone_weights
 
 # Lógica de niveles (AND/OR/NOT)
 from logic.level_logic import LEVELS, evaluate_level
@@ -56,8 +57,16 @@ class GameScreen(Screen):
         self.level_text = self.font.render(f"Level {level}", True, (255, 255, 255))
         self.level_text_rect = self.level_text.get_rect(topleft=(120, 45))
 
-        # ======= TIMER BAR =======
-        self.time_limit = 60.0
+        # Badges (0/1) para inputs y salida
+        self.badge_font = pygame.font.Font("font/BlackCastleMF.ttf", 56)
+        self.output_font = pygame.font.Font("font/BlackCastleMF.ttf", 72)
+        self.color_bit_one = (255, 246, 170)  # amarillito
+        self.color_bit_zero = (120, 0, 0)      # rojo oscuro
+
+
+# ======= TIMER BAR =======
+        cfg_level = LEVELS.get(self.level, {})
+        self.time_limit = float(cfg_level.get("time_limit", 60.0))  # ⬅️ toma del config (fallback 60s)
         self.time_left  = self.time_limit
 
         self.bar_size       = (580, 50)
@@ -76,7 +85,8 @@ class GameScreen(Screen):
         self.time_color = (255, 246, 170)
         # =========================
 
-        # ======= Botón Solve (trampa) =======
+
+# ======= Botón Solve (trampa) =======
         self.force_solved = False
         btn_skin = pygame.image.load("button.png").convert_alpha()
         btn_w, btn_h = 160, 60
@@ -135,7 +145,7 @@ class GameScreen(Screen):
 
     def setup_stones(self):
         self.stones = []
-        stone_weights = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        stone_weights = get_stone_weights(self.level)
         stones_per_row = 6
         num_rows = 2
         stone_spacing_x = self.stones_area.width // stones_per_row
@@ -378,20 +388,11 @@ class GameScreen(Screen):
         self.draw_player_info()
 
         # ====== Mostrar resultado SOLO si se testeó ======
-        if self.has_tested:
-            bits_font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
-            bits_str = " ".join(map(str, self.current_bits))
-            bits_surf = bits_font.render(bits_str, True, (255, 255, 255))
-            bits_rect = bits_surf.get_rect(center=(self.circuit_area.centerx,
-                                                   self.circuit_area.bottom + 30))
-            self.screen.blit(bits_surf, bits_rect)
+        # Badges de cada input (a la izquierda de cada box)
+        self.draw_input_bit_badges()
 
-            # (Opcional) Mostrar también el resultado final 0/1
-            result_font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
-            result_str = "RESULT: 1" if self.last_eval_complete else "RESULT: 0"
-            result_surf = result_font.render(result_str, True, (255, 246, 170))
-            result_rect = result_surf.get_rect(midleft=(bits_rect.right + 20, bits_rect.centery))
-            self.screen.blit(result_surf, result_rect)
+        # Badge del resultado final (sobre la salida del circuito)
+        self.draw_output_bit_badge()
         # ==================================================
 
         # Pause modal
@@ -414,6 +415,40 @@ class GameScreen(Screen):
             instructions = "Press SPACE near a stone to pick it up"
             text = info_font.render(instructions, True, (255, 246, 170))
             self.screen.blit(text, (120, y_offset))
+
+    def _zone_center_y(self, zone):
+        # Intenta usar rect; si no existe, usa .pos o .center
+        if hasattr(zone, "rect") and zone.rect:
+            return zone.rect.centery
+        if hasattr(zone, "pos"):
+            try:
+                return int(zone.pos[1])
+            except Exception:
+                return int(getattr(zone.pos, "y", self.input_area.centery))
+        return self.input_area.centery
+
+    def draw_input_bit_badges(self):
+        # Muestra 0/1 a la izquierda de cada InputZone con color por bit
+        x_left = self.input_area.left - 40
+        for i, zone in enumerate(self.input_zones):
+            bit = 0
+            if 0 <= i < len(self.current_bits):
+                bit = self.current_bits[i]
+            color = self.color_bit_one if bit == 1 else self.color_bit_zero
+            y = self._zone_center_y(zone)
+            surf = self.badge_font.render(str(bit), True, color)
+            rect = surf.get_rect(center=(x_left, y))
+            self.screen.blit(surf, rect)
+
+    def draw_output_bit_badge(self):
+        # 1 si el circuito quedó completo en el último test, si no 0
+        out_bit = 1 if self.last_eval_complete else 0
+        color = self.color_bit_one if out_bit == 1 else self.color_bit_zero
+        cx = self.circuit_area.right - 90
+        cy = self.circuit_area.centery
+        surf = self.output_font.render(str(out_bit), True, color)
+        rect = surf.get_rect(center=(cx, cy))
+        self.screen.blit(surf, rect)
 
     def handle_event(self, event):
         if self.settings_modal:
