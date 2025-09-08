@@ -85,26 +85,6 @@ class GameScreen(Screen):
         self.time_color = (255, 246, 170)
         # =========================
 
-
-        # ======= Botón Solve (trampa) =======
-        self.force_solved = False
-        btn_skin = pygame.image.load("button.png").convert_alpha()
-        btn_w, btn_h = 160, 60
-        margin = 20
-        self.solve_button = Button(
-            self.game.WIDTH - margin - btn_w // 2,
-            margin + btn_h // 2,
-            btn_w, btn_h,
-            text="Solve",
-            image=btn_skin,
-            scale=1.0
-        )
-        self.solve_button.font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
-        self.solve_button.text_color = (255, 246, 170)
-        self.solve_button.text_surface = self.solve_button.font.render("Solve", True, self.solve_button.text_color)
-        self.solve_button.text_rect = self.solve_button.text_surface.get_rect(center=self.solve_button.rect.center)
-        # ====================================
-
         # ======= TEST ZONE (evalúa al pisarla) =======
         self.test_zone_size = (160, 160)
         self.test_zone_rect = pygame.Rect(0, 0, *self.test_zone_size)
@@ -298,11 +278,6 @@ class GameScreen(Screen):
         # Circuit (animación interna)
         self.logic_circuit.update(dt)
 
-        # Solve forzado
-        if self.force_solved:
-            self.last_eval_complete = True
-        self.logic_circuit.is_complete = self.last_eval_complete
-
         # >>> DESBLOQUEAR JAULA CUANDO EL TEST DA 1 <<<
         # Si tu clase Cheese tiene un setter, lo usamos (opcional, no rompe si no existe).
         if hasattr(self.cheese, "set_caged"):
@@ -329,20 +304,6 @@ class GameScreen(Screen):
                 self.game.audio.play_event_name("win", volume=0.9)
             self.game.change_screen(WinScreen(self.game, level=self.level, bg_path="win-bg.png", max_level=4))
             return
-
-        # Botón Solve (coords lógicas por si usás escalado)
-        wx, wy = pygame.mouse.get_pos()
-        scale = getattr(self.game, "render_scale", 1.0) or 1.0
-        x_off, y_off = getattr(self.game, "render_offset", (0, 0))
-        if scale > 0:
-            lx = int((wx - x_off) / scale)
-            ly = int((wy - y_off) / scale)
-        else:
-            lx, ly = wx, wy
-        try:
-            self.solve_button.update(dt, (lx, ly))
-        except TypeError:
-            self.solve_button.update(dt)
 
         # TEST zone
         self._maybe_run_test()
@@ -418,9 +379,6 @@ class GameScreen(Screen):
             self.pause_modal.draw(self.screen)
         if self.settings_modal:
             self.settings_modal.draw(self.screen)
-
-        # Solve al frente
-        self.solve_button.draw(self.screen)
 
     def draw_player_info(self):
         info_font = pygame.font.Font("font/BlackCastleMF.ttf", 26)
@@ -502,28 +460,6 @@ class GameScreen(Screen):
                 pygame.mouse.set_visible(True)
             elif event.key == pygame.K_SPACE:
                 self.handle_space_interaction()
-
-    # Ya no usamos hover/cursor para TEST; el disparo es con el personaje al entrar en la plataforma
-
-        # Click “Solve” (fuera del pause)
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # Click en TEST: no hace nada (la evaluación sucede al pisar con el personaje)
-            if self.test_zone_rect.collidepoint(event.pos):
-                return
-
-            if self.solve_button.rect.collidepoint(event.pos):
-                if getattr(self.game, "audio", None):
-                    # Play a click and the win stinger before transitioning
-                    self.game.audio.play_event_name("ui_click", volume=0.7)
-                    self.game.audio.play_event_name("win", volume=0.9)
-                self.force_solved = True
-                self.level_complete = True
-                from .win_screen import WinScreen
-                self.game.change_screen(WinScreen(self.game,
-                                                  level=self.level,
-                                                  bg_path="win-bg.png",
-                                                  max_level=4))
-                return
 
     def handle_space_interaction(self):
         if self.player.carried_stone:
