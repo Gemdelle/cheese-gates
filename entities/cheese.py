@@ -3,116 +3,132 @@ import math
 
 class Cheese(pygame.sprite.Sprite):
     """
-    El queso que el jugador debe alcanzar para completar el nivel.
-    Solo es accesible cuando el circuito lógico está completo.
+    Queso + jaula. La jaula desaparece cuando el circuito está completo.
+    Compatible con GameScreen: set_caged(...) y update(..., circuit_complete=True/False).
     """
+    # Ajustá si querés más chico/grande
+    CHEESE_SIZE = (90, 70)
+    CAGE_SIZE   = (160, 176)
+    ACCESS_RADIUS = 40
+
     def __init__(self, pos):
         super().__init__()
         self.original_pos = pygame.Vector2(pos)
         self.pos = pygame.Vector2(pos)
-        self.is_accessible = False
         self.collected = False
 
-        # Animación del queso
-        self.animation_time = 0
-        self.float_amplitude = 10  # Amplitud del movimiento flotante
-        self.float_speed = 1     # Velocidad de la animación
-        self.glow_time = 0
+        # Estado de jaula / acceso
+        self.caged = True               # visible al inicio
+        self.is_accessible = False      # True si se puede agarrar (circuit_complete o sin jaula)
 
-        # Crear imagen del queso
-        self.size = 70
-        self.create_cheese_image()
+        # Animaciones
+        self.animation_time = 0.0
+        self.float_amplitude = 10
+        self.float_speed = 1.0
+        self.glow_time = 0.0
+        self._pop_timer = 0.0           # pequeño "pop" al abrir la jaula
 
-        self.rect = self.cage_img.get_rect(center=pos)  # El rect sigue la jaula (fija)
+        # Imágenes
+        self._load_images()
 
-        # Zona de acceso (área donde el jugador puede recoger el queso)
-        self.access_radius = 40
+        # El rect general (para groups)
+        base = self.cage_img if self.cage_img is not None else self.cheese_img
+        self.image = pygame.Surface(base.get_size(), pygame.SRCALPHA)
+        self.rect = self.image.get_rect(center=self.original_pos)
 
-        # Fuente del cartel (podés cambiar por tu .ttf si querés)
+        # Fuente cartel
         self._ui_font = pygame.font.Font("font/BlackCastleMF.ttf", 30)
 
-    def create_cheese_image(self):
-        """Crear las imágenes del queso y la jaula"""
-        # Cargar imágenes desde el mismo directorio
+        # Área de acceso
+        self.access_radius = self.ACCESS_RADIUS
+
+    # ----------------------- assets -----------------------
+
+    def _load_images(self):
+        # Cargar con fallback y escalar a tamaños más chicos
         cheese_raw = pygame.image.load("cheese.png").convert_alpha()
-        cage_raw   = pygame.image.load("cage.png").convert_alpha()
+        self.cheese_img = pygame.transform.smoothscale(cheese_raw, self.CHEESE_SIZE)
 
-        # --- Tamaños fijos para cada sprite ---
-        cheese_size = (130, 100)   # Tamaño del queso
-        cage_size   = (200, 220) # Tamaño de la jaula
+        self.cage_img = None
+        try:
+            cage_raw = pygame.image.load("cage.png").convert_alpha()
+            self.cage_img = pygame.transform.smoothscale(cage_raw, self.CAGE_SIZE)
+        except Exception:
+            self.cage_img = None  # si no hay archivo, seguimos sin jaula
 
-        # Escalar a esos tamaños
-        self.cheese_img = pygame.transform.smoothscale(cheese_raw, cheese_size)
-        self.cage_img   = pygame.transform.smoothscale(cage_raw, cage_size)
+    # ----------------------- API pública -----------------------
 
-        # Superficie base solo para dimensiones; el dibujado real se hace en draw()
-        self.image = pygame.Surface(cage_size, pygame.SRCALPHA)
-
-
-    def update(self, dt, bounds_rect=None, circuit_complete=False):
-        """Actualizar el estado del queso"""
-        self.is_accessible = circuit_complete
-
-        if not self.collected:
-            # Animación flotante (solo el queso se mueve, la jaula queda fija)
-            self.animation_time += dt
-            float_offset = math.sin(self.animation_time * self.float_speed) * self.float_amplitude
-            # La posición lógica del objeto (rect) sigue a la jaula, fija:
-            self.pos.update(self.original_pos.x, self.original_pos.y - float_offset + 20)
-
-            # Efecto de brillo cuando es accesible
-            if self.is_accessible:
-                self.glow_time += dt
-
-        # El rect queda centrado en la jaula (fija)
-        self.rect.center = (self.original_pos.x, self.original_pos.y)
+    def set_caged(self, value: bool):
+        """Forzar visual de jaula ON/OFF (GameScreen lo llama)."""
+        was = self.caged
+        self.caged = bool(value)
+        if was and not self.caged:
+            self._pop_timer = 0.18  # efecto leve al abrirse
 
     def can_be_collected_by(self, player_pos):
-        """Verificar si el jugador puede recoger el queso"""
+        """El jugador puede recoger si no hay jaula / circuito completo."""
         if not self.is_accessible or self.collected:
             return False
-
-        # Distancia al centro de la jaula (estático)
         distance = pygame.Vector2(player_pos).distance_to(self.original_pos)
         return distance <= self.access_radius
 
     def collect(self):
-        """Marcar el queso como recolectado"""
         if self.is_accessible and not self.collected:
             self.collected = True
             return True
         return False
 
+    # ----------------------- ciclo -----------------------
+
+    def update(self, dt, bounds_rect=None, circuit_complete=False):
+        # Accesible si el circuito está completo o si la jaula ya fue ocultada
+        self.is_accessible = circuit_complete or (not self.caged)
+
+        if not self.collected:
+            # Flotación del queso (la jaula NO se mueve)
+            self.animation_time += dt
+            float_offset = math.sin(self.animation_time * self.float_speed) * self.float_amplitude
+            self.pos.update(self.original_pos.x, self.original_pos.y - float_offset + 20)
+
+            if self.is_accessible:
+                self.glow_time += dt
+
+        # Pop al abrir
+        if self._pop_timer > 0:
+            self._pop_timer = max(0.0, self._pop_timer - dt)
+
+        # Rect centrado en la posición base (la jaula sirve de referencia si existe)
+        base = self.cage_img if (self.cage_img is not None) else self.cheese_img
+        self.rect = base.get_rect(center=self.original_pos)
+
     def draw(self, screen):
-        """Dibujar el queso con efectos especiales"""
         if self.collected:
             return
 
-        # Dibujar efecto de brillo si es accesible (alrededor de la jaula)
-        if self.is_accessible:
-            glow_radius = int(self.access_radius + 10 * math.sin(self.glow_time * 3))
-            glow_color = (255, 255, 0, 50)  # Amarillo semi-transparente
-            glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, glow_color, (glow_radius, glow_radius), glow_radius)
-            screen.blit(glow_surface, (self.original_pos.x - glow_radius, self.original_pos.y - glow_radius))
+        # Queso (con un pop/scale suave al liberarse)
+        scale = 1.0 + (0.08 * (self._pop_timer / 0.18)) if self._pop_timer > 0 else 1.0
+        if abs(scale - 1.0) > 1e-3:
+            w = int(self.cheese_img.get_width() * scale)
+            h = int(self.cheese_img.get_height() * scale)
+            cheese = pygame.transform.smoothscale(self.cheese_img, (w, h))
+        else:
+            cheese = self.cheese_img
+        cheese_rect = cheese.get_rect(center=(self.original_pos.x, self.pos.y))
+        screen.blit(cheese, cheese_rect)
 
-        # --- Orden de dibujado: primero el queso (detrás), luego la jaula (adelante) ---
-        # Posición del queso: sube y baja (self.pos.y); centrado bajo la jaula
-        cheese_rect = self.cheese_img.get_rect(center=(self.original_pos.x, self.pos.y))
-        screen.blit(self.cheese_img, cheese_rect)
+        # Jaula al frente SOLO si sigue “caged”
+        if self.caged and self.cage_img is not None:
+            cage_rect = self.cage_img.get_rect(center=self.original_pos)
+            screen.blit(self.cage_img, cage_rect)
 
-        # Jaula fija al frente
-        cage_rect = self.cage_img.get_rect(center=(self.original_pos.x, self.original_pos.y))
-        screen.blit(self.cage_img, cage_rect)
-
-        # Dibujar texto de estado si no es accesible — QUIETO debajo de la jaula y queso
+        # Cartel cuando NO es accesible
         if not self.is_accessible:
             text = self._ui_font.render("Complete circuit", True, (255, 255, 255))
-            text_rect = text.get_rect(midtop=(self.original_pos.x, cage_rect.bottom + 8))
+            text_rect = text.get_rect(midtop=(self.original_pos.x, self.rect.bottom + 8))
             screen.blit(text, text_rect)
 
+    # (por si alguna lógica externa necesita el área de acceso)
     def get_access_rect(self):
-        """Obtener el rectángulo de acceso para detección de colisiones"""
         return pygame.Rect(
             self.original_pos.x - self.access_radius,
             self.original_pos.y - self.access_radius,
