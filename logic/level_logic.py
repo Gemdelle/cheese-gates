@@ -93,35 +93,25 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         "time_limit": 60.0
     },
     4: {
-        # Inputs (de arriba hacia abajo)
         "inputs": [
-            {"threshold": 10, "invert": True},   # I0 -> NOT (debe quedar 0)
+            {"threshold": 10, "invert": False},  # I0 (se niega en el diagrama)
             {"threshold": 8,  "invert": False},  # I1
             {"threshold": 12, "invert": False},  # I2
-            {"threshold": 2,  "invert": True},   # I3 -> NOT
+            {"threshold": 2,  "invert": False},  # I3 (se niega en el diagrama)
             {"threshold": 3,  "invert": False},  # I4
         ],
-
-        # upper_and = AND(NOT I0, I1)
-        # mid_and   = AND(I2, NOT I3)
-        # bottom_or = OR(I4, OR(NOT I0, NOT I3))
-        # salida    = AND(upper_and, mid_and, bottom_or)  <-- 3 entradas
         "circuit": {
             "op": "AND",
             "args": [
-                {"op": "AND", "args": [ {"op": "NOT", "args": [0]}, 1 ]},     # upper_and
-                {"op": "AND", "args": [ 2, {"op": "NOT", "args": [3]} ]},      # mid_and
-                {"op": "OR",
-                 "args": [
-                     4,
-                     {"op": "OR", "args": [ {"op": "NOT", "args": [0]}, {"op": "NOT", "args": [3]} ]}
-                 ]}                                                             # bottom_or
+                {"op": "AND", "args": [ {"op":"NOT","args":[0]}, 1 ]},
+                {"op": "AND", "args": [ {"op":"NOT","args":[3]}, 2 ]},
+                {"op": "OR",  "args": [ 4, {"op":"NOT","args":[0]} ]},
             ]
         },
-
+        "display_invert": [True, False, False, True, False],  # ⬅️ mostrar invertidos al test
         "circuit_bg": "circuit-4.png",
-        "stones": [1, 7, 1, 9, 2, 2, 1, 5, 7],
-        "time_limit": 120.0
+        "stones": [1,7,1,9,2,2,1,5,7],
+        "time_limit": 60.0,
     },
 }
 
@@ -201,4 +191,6 @@ def evaluate_level(level_num: int, input_zones: List[Any]) -> Tuple[bool, List[i
 
     # 3) Evaluar el árbol de compuertas
     is_complete = bool(_eval_node(cfg["circuit"], bits))
+
+    print()
     return is_complete, bits
