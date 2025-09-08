@@ -203,11 +203,13 @@ class SoundManager:
         snd = self._load_sfx(name)
         if not snd:
             return
-        if volume is not None:
-            try:
-                snd.set_volume(max(0.0, min(1.0, volume)) * self.master_volume)
-            except Exception:
-                pass
+        # Compute final volume as: (event/direct volume or 1.0) * sfx_volume * master_volume
+        base = 1.0 if volume is None else max(0.0, min(1.0, volume))
+        final_vol = base * self.sfx_volume * self.master_volume
+        try:
+            snd.set_volume(final_vol)
+        except Exception:
+            pass
         loops = -1 if loop else 0
         try:
             snd.play(loops=loops, maxtime=maxtime, fade_ms=fade_ms)
@@ -226,10 +228,11 @@ class SoundManager:
         if not files:
             return
         name = random.choice(files) if len(files) > 1 else files[0]
-        eff_vol = cfg.get("volume", 1.0) if volume is None else max(0.0, min(1.0, volume))
+        eff_event_vol = cfg.get("volume", 1.0) if volume is None else max(0.0, min(1.0, volume))
         eff_loop = bool(cfg.get("loop", False)) if loop is None else bool(loop)
         fade_ms = int(max(0, fade_in or 0))
-        self.play_sfx(name, volume=eff_vol, loop=eff_loop, fade_ms=fade_ms)
+        # pass base event volume; play_sfx will scale by global sfx/master
+        self.play_sfx(name, volume=eff_event_vol, loop=eff_loop, fade_ms=fade_ms)
 
     def play_sfx_once(self, name: str, **kwargs) -> None:
         if self._played_once.get(name):
@@ -250,8 +253,8 @@ class SoundManager:
         try:
             ch = snd.play(loops=-1, fade_ms=max(0, fade_ms))
             if ch is not None:
-                eff_vol = self.sfx_volume if volume is None else max(0.0, min(1.0, volume))
-                ch.set_volume(eff_vol * self.master_volume)
+                base = 1.0 if volume is None else max(0.0, min(1.0, volume))
+                ch.set_volume(base * self.sfx_volume * self.master_volume)
                 self._loop_channels[name] = ch
         except Exception:
             pass
@@ -331,6 +334,24 @@ class SoundManager:
                 pygame.mixer.stop()
             else:
                 pygame.mixer.stop()
+        except Exception:
+            pass
+
+    def stop_music_and_loops(self, *, fade_ms_music: int = 300, fade_ms_sfx: int = 120) -> None:
+        """Stop only music and looped SFX, preserve one-shot SFX currently playing."""
+        # Stop music
+        self.stop_music(fade_ms=fade_ms_music)
+        # Stop looped SFX channels
+        try:
+            for name, ch in list(self._loop_channels.items()):
+                try:
+                    if fade_ms_sfx > 0:
+                        ch.fadeout(fade_ms_sfx)
+                    else:
+                        ch.stop()
+                except Exception:
+                    pass
+            self._loop_channels.clear()
         except Exception:
             pass
 

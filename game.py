@@ -68,7 +68,9 @@ class Game:
         # Stop any ongoing audio to avoid overlaps when switching screens
         try:
             if getattr(self, "audio", None):
-                self.audio.stop_all(fade_ms_music=250, fade_ms_sfx=120)
+                # Preserve currently playing one-shot SFX (e.g., win/lose stingers)
+                # but stop music and looped effects to avoid overlap.
+                self.audio.stop_music_and_loops(fade_ms_music=250, fade_ms_sfx=120)
         except Exception:
             pass
         self.current_screen = screen
