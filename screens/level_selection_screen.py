@@ -124,7 +124,7 @@ class LevelSelectionScreen(Screen):
                 button.update(dt, mouse_pos)
                 if not prev and getattr(button, "is_hovered", False):
                     if getattr(self.game, "audio", None):
-                        self.game.audio.play_event_name("ui_click", volume=0.7)
+                        self.game.audio.play_event_name("ui_hover")
         except TypeError:
             self.instructions_button.update(dt)
             for button in self.level_buttons:

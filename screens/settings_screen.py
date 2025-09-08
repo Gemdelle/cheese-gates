@@ -78,6 +78,9 @@ class SettingsScreen(Screen):
 
         # Layout cache
         self.update_option_positions()
+        # Hover state for SFX (for Back and option items)
+        self._hover_back = False
+        self._hover_over_idx = -1
 
     # Layout calculation
     def update_option_positions(self):
@@ -244,6 +247,32 @@ class SettingsScreen(Screen):
                 mx, my = event.pos
                 self._handle_slider_mouse(mx, my, is_down=False)
                 return
+            # Hover SFX for Back and option rows (only when dropdown closed)
+            if not self.dropdown_open:
+                # Back
+                was_back = self._hover_back
+                now_back = self.back_button[1].collidepoint(event.pos)
+                self._hover_back = now_back
+                if now_back and not was_back:
+                    try:
+                        if getattr(self.game, "audio", None):
+                            self.game.audio.play_event_name("ui_hover")
+                    except Exception:
+                        pass
+                # Option rows
+                prev_idx = self._hover_over_idx
+                idx_now = -1
+                for i, option in enumerate(self.option_rects):
+                    if option["value"][1].collidepoint(event.pos) or option["name"][1].collidepoint(event.pos):
+                        idx_now = i
+                        break
+                if idx_now != -1 and idx_now != prev_idx:
+                    try:
+                        if getattr(self.game, "audio", None):
+                            self.game.audio.play_event_name("ui_hover")
+                    except Exception:
+                        pass
+                self._hover_over_idx = idx_now
             # Dropdown hover feedback
             if self.dropdown_open and self.dropdown_item_rects:
                 prev = self.dropdown_hover

@@ -68,7 +68,7 @@ class MenuModal:
             # Reproducir SFX al entrar en hover
             if not prev and getattr(btn, "is_hovered", False):
                 if getattr(self.game, "audio", None):
-                    self.game.audio.play_event_name("ui_hover", volume=0.6)
+                    self.game.audio.play_event_name("ui_hover")
             if btn.rect.collidepoint(mouse_pos):
                 hovered_index = i
         if hovered_index != -1:
