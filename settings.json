@@ -1,13 +1,6 @@
 {
-  "resolution": "800x600",
-  "window_mode": "Pantalla Completa",
   "music": "On",
-<<<<<<< HEAD
   "sfx": "On",
-  "colorblind_mode": "On",
-  "music_volume": 0.197,
-  "sfx_volume": 0.125
-=======
-  "sfx": "On"
->>>>>>> e7a144610c20736d06bd610b528d07e66a5118bf
+  "music_volume": 0.053,
+  "sfx_volume": 0.2
 }
