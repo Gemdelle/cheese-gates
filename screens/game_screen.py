@@ -476,9 +476,9 @@ class GameScreen(Screen):
                 elif action == "settings":
                     # Open in-level settings modal (overlay)
                     self.settings_modal = SettingsModal(self.game, self.game.WIDTH // 2, self.game.HEIGHT // 2)
-                elif action == "select_level":
-                    from .level_selection_screen import LevelSelectionScreen
-                    self.game.change_screen(LevelSelectionScreen(self.game))
+                elif action == "restart":
+                    from .game_screen import GameScreen
+                    self.game.change_screen(GameScreen(self.game, level=self.level))
                 elif action == "tutorial":
                     from .tutorial_screen import TutorialScreen
                     self.game.change_screen(TutorialScreen(self.game, bg_path="tutorial-bg.png"))
