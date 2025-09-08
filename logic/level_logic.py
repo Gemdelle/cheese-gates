@@ -36,7 +36,7 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         "circuit": {"op": "OR", "args": [0, 1]},
         "circuit_bg": "circuit-1.png",
         "stones": [1, 4, 2, 1],  # editá a gusto
-        "time_limit": 60.0
+        "time_limit": 80.0
     },
     2: {
         # 4 inputs con los thresholds de la imagen: /3, /4, /6, /8
@@ -62,7 +62,7 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         "stones": [1, 2, 1, 2, 4, 1],
 
         # Tiempo para resolver (va a la barra del GameScreen)
-        "time_limit": 60.0
+        "time_limit": 50.0
     },
     3: {
         # Umbrales según la imagen: /5, /2 (NOT), /3 (NOT), /6
@@ -90,7 +90,7 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         "stones": [1, 2, 1, 1, 2, 4],
 
         # Tiempo para resolver (barra)
-        "time_limit": 60.0
+        "time_limit": 40.0
     },
     4: {
         "inputs": [
@@ -111,7 +111,7 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         "display_invert": [True, False, False, True, False],  # ⬅️ mostrar invertidos al test
         "circuit_bg": "circuit-4.png",
         "stones": [1,7,1,9,2,2,12,5,7],
-        "time_limit": 60.0,
+        "time_limit": 30.0,
     },
 }
 

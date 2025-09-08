@@ -13,10 +13,10 @@ class PauseModal:
         self.font = pygame.font.Font("font/BlackCastleMF.ttf", 36)
         self.text_color = (255, 246, 170)  # amarillo clarito
         self.options = [
-            {"text": "Tutorial",        "action": "tutorial"},
-            {"text": "Settings",        "action": "settings"},
-            {"text": "Restart",         "action": "restart"},   # <-- cambiado aquí
-            {"text": "Exit to Desktop", "action": "exit"},
+            {"text": "Tutorial",   "action": "tutorial"},
+            {"text": "Settings",   "action": "settings"},
+            {"text": "Restart",    "action": "restart"},
+            {"text": "Main Menu",  "action": "main_menu"},   # <- cambiado acá
         ]
 
         # Botones

@@ -535,10 +535,9 @@ class GameScreen(Screen):
                 elif action == "tutorial":
                     from .tutorial_screen import TutorialScreen
                     self.game.change_screen(TutorialScreen(self.game, bg_path="tutorial-bg.png"))
-                elif action == "exit":
-                    pygame.quit()
-                    import sys
-                    sys.exit()
+                elif action == "main_menu":
+                    from .splash_screen import SplashScreen
+                    self.game.change_screen(SplashScreen(self.game))
             return
 
         if event.type == pygame.KEYDOWN:
