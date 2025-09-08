@@ -22,6 +22,7 @@ class GameScreen(Screen):
         self.settings_modal = None
         self.level_complete = False
         self.scene_key = "level"
+
         # Background
         background_raw = pygame.image.load("level-bg.png").convert()
         if background_raw.get_width() != self.game.WIDTH or background_raw.get_height() != self.game.HEIGHT:
@@ -41,9 +42,13 @@ class GameScreen(Screen):
         self.all_sprites = pygame.sprite.Group(self.player)
         self.stone_sprites = pygame.sprite.Group()
 
-        # Objetos
+        # ------ Objetos base ------
         self.setup_stones()
         self.setup_input_zones()   # dinámico según LEVELS
+
+        # ⬇️ Pre-colocar piedra en cada input NOT (solo niveles 3 y 4) — ahora que ya hay stones & input_zones
+        self._preplace_not_stones_simple()
+
         self.setup_circuit()
         self.setup_cheese()
 
@@ -61,12 +66,11 @@ class GameScreen(Screen):
         self.badge_font = pygame.font.Font("font/BlackCastleMF.ttf", 56)
         self.output_font = pygame.font.Font("font/BlackCastleMF.ttf", 72)
         self.color_bit_one = (255, 246, 170)  # amarillito
-        self.color_bit_zero = (120, 0, 0)      # rojo oscuro
-
+        self.color_bit_zero = (120, 0, 0)     # rojo oscuro
 
         # ======= TIMER BAR =======
         cfg_level = LEVELS.get(self.level, {})
-        self.time_limit = float(cfg_level.get("time_limit", 60.0))  # ⬅️ toma del config (fallback 60s)
+        self.time_limit = float(cfg_level.get("time_limit", 60.0))
         self.time_left  = self.time_limit
 
         self.bar_size       = (580, 50)
@@ -88,9 +92,9 @@ class GameScreen(Screen):
         # ======= TEST ZONE (evalúa al pisarla) =======
         self.test_zone_size = (160, 160)
         self.test_zone_rect = pygame.Rect(0, 0, *self.test_zone_size)
-        self.test_zone_rect.center = (self.playable_area.centerx -80, self.playable_area.top +80)
+        self.test_zone_rect.center = (self.playable_area.centerx - 80, self.playable_area.top + 80)
 
-        # Fondo con imagen (platform.png) en lugar de color/borde
+        # Fondo con imagen (platform.png)
         self.test_img_raw = pygame.image.load("platform.png").convert_alpha()
         self.test_img = pygame.transform.smoothscale(self.test_img_raw, self.test_zone_size)
 
@@ -99,11 +103,8 @@ class GameScreen(Screen):
         self.test_label_color = (100, 50, 0)
 
         self._was_in_test_zone = False
-        # Mouse hover over TEST zone state (to play SFX once on enter)
-        self._mouse_in_test_zone = False
 
         # ======= Resultado cacheado (SOLO tras testear) =======
-        # Robustez ante niveles sin configurar: fallback a 2 inputs
         try:
             num_inputs_cfg = len(LEVELS[self.level].get("inputs", []))
             if num_inputs_cfg == 0:
@@ -112,21 +113,20 @@ class GameScreen(Screen):
             num_inputs_cfg = 2
         self.current_bits = [0] * num_inputs_cfg
         self.last_eval_complete = False
-        self.has_tested = False           # <-- CLAVE: hasta que no pise TEST, no mostramos nada
+        self.has_tested = False
         # =======================================================
 
         # Máscara de inversión de display para los inputs (solo después de TEST)
         cfg = LEVELS.get(self.level, {})
         mask = cfg.get("display_invert", [])
-        # Normalizamos al largo de inputs
         if len(mask) < len(self.current_bits):
             mask = list(mask) + [False] * (len(self.current_bits) - len(mask))
         elif len(mask) > len(self.current_bits):
             mask = mask[:len(self.current_bits)]
         self.display_invert = mask
 
-    # Cursor visible en el nivel
-    pygame.mouse.set_visible(True)
+        # Cursor visible en el nivel
+        pygame.mouse.set_visible(True)
 
     def setup_game_zones(self):
         self.playable_area = pygame.Rect(120, 170, 1680, 850)
@@ -155,35 +155,28 @@ class GameScreen(Screen):
         self.input_zones = []
         cfg_inputs = LEVELS.get(self.level, {}).get("inputs")
         if not cfg_inputs:
-            # Fallback seguro: 2 inputs estándar
             cfg_inputs = [
                 {"threshold": 1, "invert": False},
                 {"threshold": 1, "invert": False},
             ]
         num_inputs = len(cfg_inputs)
 
-        # Espaciado vertical uniforme dentro del área de inputs
         input_spacing = self.input_area.height // (num_inputs + 1 if num_inputs > 0 else 1)
 
         for i, rule in enumerate(cfg_inputs):
             x = self.input_area.centerx
             y = self.input_area.top + input_spacing * (i + 1)
 
-            # Si es NOT (invert=True), el requerido para UI es 0; si no, el threshold real
             required = 0 if rule.get("invert", False) else int(rule.get("threshold", 0))
-
             input_zone = InputZone((x, y), i + 1, required=required)
             self.input_zones.append(input_zone)
 
     def setup_circuit(self):
         """Crear el circuito lógico con fondo por nivel."""
         cfg = LEVELS.get(self.level, {})
-        bg_path = cfg.get("circuit_bg")  # e.g., "level_1.png"
-
-        # Pasamos el rect completo (posición y tamaño) + el fondo
+        bg_path = cfg.get("circuit_bg")
         self.logic_circuit = LogicCircuit(self.circuit_area, circuit_bg_path=bg_path)
 
-        # Conectar las zonas de input al circuito
         for input_zone in self.input_zones:
             self.logic_circuit.add_input_zone(input_zone)
 
@@ -191,6 +184,120 @@ class GameScreen(Screen):
         cheese_pos = (self.reward_area.centerx, self.reward_area.centery)
         self.cheese = Cheese(cheese_pos)
         self.all_sprites.add(self.cheese)
+
+    def _preplace_not_stones_simple(self):
+        """
+        Pre-coloca 1 piedra en cada input invertido (NOT) en niveles 3 y 4.
+        - Busca índices NOT desde LEVELS[level]["inputs"] (invert=True) y, si no hay,
+          usa LEVELS[level]["display_invert"] como fallback.
+        - Coloca una piedra cuyo peso sea > requerido (required+1). Si no hay, usa la más pesada libre.
+        - En LEVEL 4, el PRIMER NOT recibe específicamente la piedra de peso 12 (si existe)
+          para que se vea 12/10.
+        """
+        if self.level not in (3, 4):
+            return
+        if not hasattr(self, "stones") or not hasattr(self, "input_zones"):
+            return
+
+        cfg = LEVELS.get(self.level, {})
+        cfg_inputs = cfg.get("inputs", [])
+
+        # 1) Detectar índices de NOT
+        target_idxs = [i for i, rule in enumerate(cfg_inputs) if rule.get("invert", False)]
+        if not target_idxs:
+            disp = cfg.get("display_invert", [])
+            target_idxs = [i for i, inv in enumerate(disp) if inv]
+
+        target_idxs = [i for i in target_idxs if 0 <= i < len(self.input_zones)]
+        if not target_idxs:
+            return
+
+        # ------- helpers -------
+        def free_stones():
+            return [s for s in self.stones
+                    if not getattr(s, "is_carried", False) and not getattr(s, "is_placed", False)]
+
+        def take_specific_weight(w):
+            for s in free_stones():
+                if getattr(s, "weight", 0) == w:
+                    return s
+            return None
+
+        def take_stone_over(min_needed):
+            fs = free_stones()
+            if not fs:
+                return None
+            enough = [s for s in fs if getattr(s, "weight", 0) >= min_needed]
+            if enough:
+                return sorted(enough, key=lambda s: getattr(s, "weight", 9999))[0]
+            # fallback: la más pesada disponible
+            return sorted(fs, key=lambda s: getattr(s, "weight", 0), reverse=True)[0]
+
+        def center_of_zone(zone):
+            if hasattr(zone, "rect") and zone.rect:
+                return zone.rect.center
+            if hasattr(zone, "pos"):
+                try:
+                    return (int(zone.pos[0]), int(zone.pos[1]))
+                except Exception:
+                    pass
+            return (self.input_area.centerx, self.input_area.centery)
+
+        def place_in_zone(stone, zone):
+            cx, cy = center_of_zone(zone)
+            stone.is_carried = False
+            stone.is_placed = True
+            stone.rect.center = (cx, cy)
+
+            placed = False
+            if hasattr(zone, "add_stone") and callable(zone.add_stone):
+                try:
+                    zone.add_stone(stone); placed = True
+                except Exception:
+                    pass
+            if not placed and hasattr(zone, "place_stone") and callable(zone.place_stone):
+                try:
+                    zone.place_stone(stone); placed = True
+                except Exception:
+                    pass
+            if not placed and hasattr(zone, "stones"):
+                try:
+                    zone.stones.append(stone); placed = True
+                except Exception:
+                    pass
+            if not placed and hasattr(zone, "base_weight"):
+                try:
+                    zone.base_weight = getattr(zone, "base_weight", 0) + getattr(stone, "weight", 1)
+                except Exception:
+                    pass
+
+        def required_for_zone(i, zone):
+            try:
+                return int(getattr(zone, "required", cfg_inputs[i].get("threshold", 0)))
+            except Exception:
+                return int(cfg_inputs[i].get("threshold", 0))
+
+        # 2) Level 4: asegurar 12/10 en el PRIMER NOT
+        if self.level == 4:
+            first_idx = target_idxs[0]
+            zone = self.input_zones[first_idx]
+            req = required_for_zone(first_idx, zone)
+            min_needed = max(1, req + 1)
+            stone = take_specific_weight(12) or take_stone_over(min_needed)
+            if stone:
+                place_in_zone(stone, zone)
+            # procesar el resto luego
+            target_idxs = target_idxs[1:]
+
+        # 3) Resto de NOTs (lvl 3 y los restantes de lvl 4)
+        for i in target_idxs:
+            zone = self.input_zones[i]
+            req = required_for_zone(i, zone)
+            min_needed = max(1, req + 1)
+            stone = take_stone_over(min_needed)
+            if stone:
+                place_in_zone(stone, zone)
+
 
     def constrain_player_movement(self):
         half_w, half_h = self.player.rect.width / 2, self.player.rect.height / 2
@@ -235,16 +342,15 @@ class GameScreen(Screen):
             try:
                 is_complete, bits = evaluate_level(self.level, self.input_zones)
             except Exception:
-                # Fallback si el nivel no está bien definido
-                # Equivalente a OR simple entre primeros dos bits calculados a partir de threshold 1
                 weights = [z.get_total_weight() for z in self.input_zones]
                 bits = [1 if w >= 1 else 0 for w in weights[:2]]
                 is_complete = any(bits)
             self.current_bits = bits
             self.last_eval_complete = is_complete
             self.logic_circuit.is_complete = self.last_eval_complete
-            self.has_tested = True   # <-- ahora SÍ podemos mostrar el resultado/bits
-            # Reproducir SFX según resultado al ENTRAR el personaje a la plataforma TEST
+            self.has_tested = True
+
+            # SFX al entrar a TEST
             if getattr(self.game, "audio", None):
                 if is_complete:
                     self.game.audio.play_event_name("test_success", volume=1.0)
@@ -278,24 +384,16 @@ class GameScreen(Screen):
         # Circuit (animación interna)
         self.logic_circuit.update(dt)
 
-        # >>> DESBLOQUEAR JAULA CUANDO EL TEST DA 1 <<<
-        # Si tu clase Cheese tiene un setter, lo usamos (opcional, no rompe si no existe).
+        # Abrir/cerrar jaula según el último test
         if hasattr(self.cheese, "set_caged"):
             self.cheese.set_caged(not self.last_eval_complete)
 
-        # Cheese según estado del circuito (esto ya hace que la jaula se abra si circuit_complete=True)
+        # Cheese según estado del circuito (para animaciones internas)
         self.cheese.update(dt, self.playable_area, self.logic_circuit.is_complete)
 
         # Interacciones
         self.handle_stone_interactions()
         self.handle_cheese_collection()
-
-        # Walking loop SFX (assets/sounds/walking.*)
-        if getattr(self.game, "audio", None):
-            if self.player.is_moving:
-                self.game.audio.start_loop_sfx("walking", volume=0.45, fade_ms=60)
-            else:
-                self.game.audio.stop_loop_sfx("walking", fade_ms=120)
 
         # Win
         if self.level_complete:
@@ -310,12 +408,6 @@ class GameScreen(Screen):
 
     def draw(self):
         self.screen.blit(self.background, (0, 0))
-        # pygame.draw.rect(self.screen, (0, 0, 255), self.circuit_area, 2)
-        # pygame.draw.rect(self.screen, (0, 255, 255), self.playable_area, 2)
-        # pygame.draw.rect(self.screen, (255, 255, 0), self.stones_area, 2)
-        # pygame.draw.rect(self.screen, (0, 255, 0), self.input_area, 2)
-        # pygame.draw.rect(self.screen, (255, 0, 255), self.reward_area, 2)
-
 
         # Input zones
         for input_zone in self.input_zones:
@@ -331,14 +423,13 @@ class GameScreen(Screen):
         self.screen.blit(label, label_rect)
         # =========================================================
 
-        # Sprites (personaje y piedras) --> se dibujan ENCIMA del botón TEST
+        # Sprites (personaje y piedras) --> ENCIMA del botón TEST
         self.all_sprites.draw(self.screen)
         if self.player.carried_stone:
             self.screen.blit(self.player.carried_stone.image, self.player.carried_stone.rect)
 
-        # Cheese FX
+        # Cheese
         self.cheese.draw(self.screen)
-
 
         # ===== Timer bar =====
         inner = self.bar_rect.inflate(-2*self.bar_padding, -2*self.bar_padding)
@@ -366,15 +457,12 @@ class GameScreen(Screen):
         # Info jugador
         self.draw_player_info()
 
-        # ====== Mostrar resultado SOLO si se testeó ======
-        # Badges de cada input (a la izquierda de cada box)
+        # ====== Badges (0/1) ======
         self.draw_input_bit_badges()
-
-        # Badge del resultado final (sobre la salida del circuito)
         self.draw_output_bit_badge()
-        # ==================================================
+        # ==========================
 
-        # Pause modal
+        # Overlays
         if self.pause_modal:
             self.pause_modal.draw(self.screen)
         if self.settings_modal:
@@ -440,7 +528,6 @@ class GameScreen(Screen):
                     self.pause_modal = None
                     pygame.mouse.set_visible(True)
                 elif action == "settings":
-                    # Open in-level settings modal (overlay)
                     self.settings_modal = SettingsModal(self.game, self.game.WIDTH // 2, self.game.HEIGHT // 2)
                 elif action == "restart":
                     from .game_screen import GameScreen
