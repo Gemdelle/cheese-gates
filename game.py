@@ -65,7 +65,23 @@ class Game:
         self.audio = SoundManager()
 
     def change_screen(self, screen):
+        # Stop any ongoing audio to avoid overlaps when switching screens
+        try:
+            if getattr(self, "audio", None):
+                self.audio.stop_all(fade_ms_music=250, fade_ms_sfx=120)
+        except Exception:
+            pass
         self.current_screen = screen
+        # Start scene music for the new screen if declared
+        try:
+            if getattr(self, "audio", None):
+                # Prefer explicit music name if provided
+                if hasattr(screen, "scene_music_name") and screen.scene_music_name:
+                    self.audio.play_music_name(screen.scene_music_name)
+                elif hasattr(screen, "scene_key") and screen.scene_key:
+                    self.audio.enter_scene(screen.scene_key)
+        except Exception:
+            pass
 
     def run(self):
         running = True

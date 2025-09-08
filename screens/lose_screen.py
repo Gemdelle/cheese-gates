@@ -6,10 +6,12 @@ class LoseScreen(Screen):
     def __init__(self, game, level=1, bg_path="lose-bg.png"):
         super().__init__(game)
         self.level = level
+        # Scene music will be started by Game.change_screen
+        self.scene_music_name = "lose"
 
         # Fondo a pantalla completa
         bg_raw = pygame.image.load(bg_path).convert()
-        self.background = pygame.transform.smoothscale(bg_raw, (game.WIDTH, game.HEIGHT))
+        self.background = pygame.transform.smoothscale(bg_raw, (self.game.WIDTH, self.game.HEIGHT))
 
         # Botón skin
         button_skin = pygame.image.load("button.png").convert_alpha()
@@ -20,9 +22,9 @@ class LoseScreen(Screen):
 
         # Botones
         btn_w, btn_h = 300, 100
-        center_x = game.WIDTH // 2
-        y1 = int(game.HEIGHT * 0.70)
-        y2 = int(game.HEIGHT * 0.83)
+        center_x = self.game.WIDTH // 2
+        y1 = int(self.game.HEIGHT * 0.70)
+        y2 = int(self.game.HEIGHT * 0.83)
 
         self.retry_button = Button(center_x, y1, btn_w, btn_h,
                                    text="Retry", image=button_skin, scale=1.0)
@@ -39,12 +41,7 @@ class LoseScreen(Screen):
         # Mostrar cursor en la pantalla de derrota
         pygame.mouse.set_visible(True)
 
-        # Música de derrota desde config JSON
-        if getattr(self.game, "audio", None):
-            try:
-                self.game.audio.play_music_name("lose")
-            except Exception:
-                pass
+    # Música de derrota: se inicia una sola vez al entrar (Game.change_screen)
 
     def update(self, dt):
         # Usar coordenadas lógicas del canvas para que el hover funcione con el escalado

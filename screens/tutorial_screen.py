@@ -6,10 +6,11 @@ from .base_screen import Screen
 class TutorialScreen(Screen):
     def __init__(self, game, bg_path="tutorial-bg.png"):
         super().__init__(game)
+        self.scene_key = "tutorial"
 
         # Fullscreen background
         bg_raw = pygame.image.load(bg_path).convert()
-        self.background = pygame.transform.smoothscale(bg_raw, (game.WIDTH, game.HEIGHT))
+        self.background = pygame.transform.smoothscale(bg_raw, (self.game.WIDTH, self.game.HEIGHT))
 
         # Text (animated like splash)
         self.font = pygame.font.Font("font/BlackCastleMF.ttf", 36)

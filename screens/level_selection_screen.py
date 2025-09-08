@@ -5,14 +5,15 @@ from ui.button import Button
 class LevelSelectionScreen(Screen):
     def __init__(self, game):
         super().__init__(game)
+        self.scene_key = "level_select"
         # ===== Fondo =====
         self.bg_raw = pygame.image.load("level-selection-bg.png").convert()
-        self.bg = pygame.transform.smoothscale(self.bg_raw, (game.WIDTH, game.HEIGHT))
+        self.bg = pygame.transform.smoothscale(self.bg_raw, (self.game.WIDTH, self.game.HEIGHT))
 
         # ===== Botón TUTORIAL con fondo button.png y fuente/color custom =====
         button_bg = pygame.image.load("button.png").convert_alpha()
         self.instructions_button = Button(
-            game.WIDTH // 2, 160, 260, 80,  # posición un poco más arriba
+            self.game.WIDTH // 2, 160, 260, 80,  # posición un poco más arriba
             text="Tutorial",
             image=button_bg,
             scale=1.0
@@ -56,7 +57,7 @@ class LevelSelectionScreen(Screen):
         self.single_row_sizes = row1_sizes + row2_sizes  # 4 en una sola fila
 
         # ===== Layout en UNA SOLA FILA =====
-        self.row_y = game.HEIGHT // 2 + 60  # posición vertical de la fila
+        self.row_y = self.game.HEIGHT // 2 + 60  # posición vertical de la fila
         self.single_gap = 160                # separación horizontal entre botones
 
         self.level_buttons = []
@@ -71,9 +72,7 @@ class LevelSelectionScreen(Screen):
         # Mostrar cursor
         pygame.mouse.set_visible(True)
 
-        # Música de escena (configurable en audio/audio_config.json)
-        if getattr(self.game, "audio", None):
-            self.game.audio.enter_scene("level_select")
+    # Música de escena se inicia en Game.change_screen
 
     def _create_single_row_buttons(self):
         """Crear los 4 botones en una sola fila, centrados, manteniendo tamaños."""

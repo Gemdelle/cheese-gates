@@ -307,6 +307,33 @@ class SoundManager:
             pass
         self._current_music = None
 
+    def stop_all(self, *, fade_ms_music: int = 300, fade_ms_sfx: int = 120) -> None:
+        """Stop all audio: music and SFX (including loop channels)."""
+        # Stop music
+        self.stop_music(fade_ms=fade_ms_music)
+        # Stop looped SFX channels
+        try:
+            for name, ch in list(self._loop_channels.items()):
+                try:
+                    if fade_ms_sfx > 0:
+                        ch.fadeout(fade_ms_sfx)
+                    else:
+                        ch.stop()
+                except Exception:
+                    pass
+            self._loop_channels.clear()
+        except Exception:
+            pass
+        # Stop any one-shot SFX
+        try:
+            if fade_ms_sfx > 0:
+                # pygame has no global fade; best effort: immediate stop
+                pygame.mixer.stop()
+            else:
+                pygame.mixer.stop()
+        except Exception:
+            pass
+
     # Música por nombre desde JSON
     def play_music_name(self, music_name: str, *, volume: Optional[float] = None,
                         loop: Optional[bool] = None, fade_in: Optional[int] = None) -> None:

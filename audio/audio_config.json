@@ -10,13 +10,15 @@
 
   "footstep": { "files": ["step_1", "step_2", "step_3", "step_4"], "volume": 0.4 },
   "idle":     { "files": ["idle_1", "idle_2"], "volume": 0.5 },
-  "walking":  { "files": ["walking"], "volume": 0.45, "loop": true }
+  "walking":  { "files": ["walking"], "volume": 0.45, "loop": true },
+  "test_success": { "files": ["test-success"], "volume": 1.0 },
+  "test_fail":    { "files": ["test-fail"],    "volume": 1.0 }
   },
 
   "music": {
     "menu":         { "file": "menu",         "loop": true,  "volume": 0.7, "fade_in": 600 },
     "level_select": { "file": "level_select", "loop": true,  "volume": 0.7, "fade_in": 600 },
-    "level":        { "file": "level",        "loop": true,  "volume": 0.8, "fade_in": 800 },
+  "level":        { "file": "level",        "loop": true,  "volume": 0.05, "fade_in": 800 },
     "tutorial":     { "file": "tutorial",     "loop": true,  "volume": 0.7, "fade_in": 600 },
   "settings":     { "file": "settings",     "loop": true,  "volume": 0.6, "fade_in": 400 },
   "lose":         { "file": "losegamemusic", "loop": true,  "volume": 0.8, "fade_in": 600 }

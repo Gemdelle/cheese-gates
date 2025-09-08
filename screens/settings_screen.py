@@ -8,6 +8,7 @@ from .base_screen import Screen
 class SettingsScreen(Screen):
     def __init__(self, game):
         super().__init__(game)
+        self.scene_key = "settings"
 
         # Fonts
         try:
@@ -33,6 +34,14 @@ class SettingsScreen(Screen):
             "music": {"options": ["On", "Off"], "current": 0},
             "sfx": {"options": ["On", "Off"], "current": 0},
         }
+        # Volume state (0.0 .. 1.0)
+        self.music_volume = 0.8
+        self.sfx_volume = 0.8
+        # Slider UI state
+        self.slider_music_rect = None   # track rect
+        self.slider_sfx_rect = None     # track rect
+        self.dragging_music = False
+        self.dragging_sfx = False
         self._load_saved_into_state()
 
         # UI state
@@ -60,15 +69,12 @@ class SettingsScreen(Screen):
             if getattr(self.game, "audio", None):
                 self.game.audio.set_music_enabled(bool(music_on))
                 self.game.audio.set_sfx_enabled(bool(sfx_on))
+                self.game.audio.set_music_volume(float(self.music_volume))
+                self.game.audio.set_sfx_volume(float(self.sfx_volume))
         except Exception:
             pass
 
-        # Scene music (optional)
-        try:
-            if getattr(self.game, "audio", None):
-                self.game.audio.enter_scene("settings")
-        except Exception:
-            pass
+        # Scene music starts in Game.change_screen
 
         # Layout cache
         self.update_option_positions()
@@ -93,6 +99,17 @@ class SettingsScreen(Screen):
             value_rect = value_surface.get_rect(left=self.game.WIDTH // 2 + 20, centery=start_y + i * spacing)
 
             self.option_rects.append({"name": (name_surface, name_rect), "value": (value_surface, value_rect)})
+
+            # Prepare slider positions for Music and Sfx
+            track_w, track_h = 260, 10
+            track_margin = 16
+            track_x = value_rect.left
+            track_y = value_rect.centery + track_margin
+            track_rect = pygame.Rect(track_x, track_y, track_w, track_h)
+            if key == "music":
+                self.slider_music_rect = track_rect
+            elif key == "sfx":
+                self.slider_sfx_rect = track_rect
 
         back = self.font.render("Back", True, (255, 255, 255))
         back_rect = back.get_rect(center=(self.game.WIDTH // 2, start_y + len(self.settings) * spacing))
@@ -146,6 +163,10 @@ class SettingsScreen(Screen):
                 text = self.font.render(items[i], True, (235, 238, 255))
                 text_rect = text.get_rect(midleft=(rect.left + 12, rect.centery))
                 self.screen.blit(text, text_rect)
+
+        # Volume sliders (draw after options so they appear aligned under the value text)
+        self._draw_slider(self.slider_music_rect, self.music_volume, label="Music Vol")
+        self._draw_slider(self.slider_sfx_rect, self.sfx_volume, label="SFX Vol")
 
         # Toast
         if self.info_message and self.info_timer > 0:
@@ -218,6 +239,12 @@ class SettingsScreen(Screen):
                     self._open_dropdown(self.selected)
 
         elif event.type == pygame.MOUSEMOTION:
+            # While dragging sliders, update values continuously
+            if self.dragging_music or self.dragging_sfx:
+                mx, my = event.pos
+                self._handle_slider_mouse(mx, my, is_down=False)
+                return
+            # Dropdown hover feedback
             if self.dropdown_open and self.dropdown_item_rects:
                 prev = self.dropdown_hover
                 self.dropdown_hover = -1
@@ -234,6 +261,9 @@ class SettingsScreen(Screen):
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = event.pos
+            # Check sliders first
+            if self._handle_slider_mouse(mx, my, is_down=True):
+                return
             if self.dropdown_open:
                 if self.dropdown_box_rect and self.dropdown_box_rect.collidepoint((mx, my)):
                     for i, r in enumerate(self.dropdown_item_rects):
@@ -271,6 +301,13 @@ class SettingsScreen(Screen):
                 from .splash_screen import SplashScreen
                 self.game.change_screen(SplashScreen(self.game))
                 return
+
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            # Stop dragging sliders
+            self.dragging_music = False
+            self.dragging_sfx = False
+
+        
 
     def update(self, dt):
         if self.info_timer > 0:
@@ -331,6 +368,8 @@ class SettingsScreen(Screen):
             if getattr(self.game, "audio", None):
                 self.game.audio.set_music_enabled(bool(music_on))
                 self.game.audio.set_sfx_enabled(bool(sfx_on))
+                self.game.audio.set_music_volume(float(self.music_volume))
+                self.game.audio.set_sfx_volume(float(self.sfx_volume))
         except Exception:
             pass
 
@@ -341,6 +380,8 @@ class SettingsScreen(Screen):
                 "window_mode": mode,
                 "music": self.settings["music"]["options"][self.settings["music"]["current"]],
                 "sfx": self.settings["sfx"]["options"][self.settings["sfx"]["current"]],
+                "music_volume": round(float(self.music_volume), 3),
+                "sfx_volume": round(float(self.sfx_volume), 3),
             })
         except Exception:
             pass
@@ -372,6 +413,19 @@ class SettingsScreen(Screen):
             self.settings["sfx"]["current"] = self.settings["sfx"]["options"].index(sfx)
         elif audio in ("On", "Off"):
             self.settings["sfx"]["current"] = self.settings["sfx"]["options"].index(audio)
+        # Volumes (0.0..1.0)
+        mv = data.get("music_volume")
+        sv = data.get("sfx_volume")
+        try:
+            if mv is not None:
+                self.music_volume = max(0.0, min(1.0, float(mv)))
+        except Exception:
+            pass
+        try:
+            if sv is not None:
+                self.sfx_volume = max(0.0, min(1.0, float(sv)))
+        except Exception:
+            pass
     # colorblind option removed
 
     # Dropdown helpers
@@ -464,3 +518,61 @@ class SettingsScreen(Screen):
                 b = int(mid[2] + (bot[2] - mid[2]) * k)
             pygame.draw.line(surf, (r, g, b), (0, y), (w, y))
         return surf
+
+    # -------- Volume slider helpers --------
+    def _draw_slider(self, track_rect: pygame.Rect | None, value: float, label: str = ""):
+        if not track_rect:
+            return
+        # Track
+        pygame.draw.rect(self.screen, (40, 44, 66), track_rect, border_radius=6)
+        # Fill
+        clamped = max(0.0, min(1.0, float(value)))
+        fill_w = int(track_rect.width * clamped)
+        fill_rect = pygame.Rect(track_rect.left, track_rect.top, fill_w, track_rect.height)
+        pygame.draw.rect(self.screen, (140, 150, 240), fill_rect, border_radius=6)
+        # Knob
+        knob_x = track_rect.left + fill_w
+        knob_y = track_rect.centery
+        pygame.draw.circle(self.screen, (220, 225, 255), (knob_x, knob_y), 8)
+        # Label + percent
+        if label:
+            percent = int(round(clamped * 100))
+            txt = self.font.render(f"{label}: {percent}%", True, (215, 220, 255))
+            txt_rect = txt.get_rect(left=track_rect.left, bottom=track_rect.top - 6)
+            self.screen.blit(txt, txt_rect)
+
+    def _handle_slider_mouse(self, mx: int, my: int, *, is_down: bool) -> bool:
+        """Return True if a slider interaction was handled."""
+        handled = False
+        # Music slider
+        if self.slider_music_rect and (self.dragging_music or self.slider_music_rect.collidepoint((mx, my))):
+            if is_down:
+                self.dragging_music = True
+            if self.dragging_music:
+                self.music_volume = self._pos_to_value(self.slider_music_rect, mx)
+                try:
+                    if getattr(self.game, "audio", None):
+                        self.game.audio.set_music_volume(float(self.music_volume))
+                except Exception:
+                    pass
+            handled = True
+        # SFX slider
+        if self.slider_sfx_rect and (self.dragging_sfx or self.slider_sfx_rect.collidepoint((mx, my))):
+            if is_down:
+                self.dragging_sfx = True
+            if self.dragging_sfx:
+                self.sfx_volume = self._pos_to_value(self.slider_sfx_rect, mx)
+                try:
+                    if getattr(self.game, "audio", None):
+                        self.game.audio.set_sfx_volume(float(self.sfx_volume))
+                except Exception:
+                    pass
+            handled = True or handled
+        return handled
+
+    @staticmethod
+    def _pos_to_value(track_rect: pygame.Rect, mx: int) -> float:
+        if not track_rect.width:
+            return 0.0
+        t = (mx - track_rect.left) / track_rect.width
+        return max(0.0, min(1.0, float(t)))

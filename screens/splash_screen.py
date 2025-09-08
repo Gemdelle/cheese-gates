@@ -5,8 +5,9 @@ from ui.menu_modal import MenuModal
 class SplashScreen(Screen):
     def __init__(self, game):
         super().__init__(game)
+        self.scene_key = "splash"
         self.background = pygame.image.load("splash.png").convert()
-        self.original_bg = pygame.transform.scale(self.background, (game.WIDTH, game.HEIGHT))
+        self.original_bg = pygame.transform.scale(self.background, (self.game.WIDTH, self.game.HEIGHT))
 
         # Sin zoom: mostramos el mensaje enseguida
         self.show_press_enter = True
@@ -27,9 +28,7 @@ class SplashScreen(Screen):
         # Mostrar cursor en el splash
         pygame.mouse.set_visible(True)
 
-        # Música de escena (configurable en audio/audio_config.json)
-        if getattr(self.game, "audio", None):
-            self.game.audio.enter_scene("splash")
+    # Música de escena se inicia en Game.change_screen
 
     def update_text(self):
         """Recrear superficie del texto con la opacidad actual"""

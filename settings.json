@@ -3,5 +3,7 @@
   "window_mode": "Pantalla Completa",
   "music": "On",
   "sfx": "On",
-  "colorblind_mode": "On"
+  "colorblind_mode": "On",
+  "music_volume": 0.197,
+  "sfx_volume": 0.125
 }

@@ -6,6 +6,7 @@ from entities.input_zone import InputZone
 from entities.logic_circuit import LogicCircuit
 from entities.cheese import Cheese
 from ui.pause_modal import PauseModal
+from ui.settings_modal import SettingsModal
 from ui.button import Button
 
 # Lógica de niveles (AND/OR/NOT)
@@ -17,16 +18,13 @@ class GameScreen(Screen):
         super().__init__(game)
         self.level = level
         self.pause_modal = None
+        self.settings_modal = None
         self.level_complete = False
-
-        # Música de escena (configurable en audio/audio_config.json)
-        if getattr(self.game, "audio", None):
-            self.game.audio.enter_scene("level")
-
+        self.scene_key = "level"
         # Background
         background_raw = pygame.image.load("level-bg.png").convert()
-        if background_raw.get_width() != game.WIDTH or background_raw.get_height() != game.HEIGHT:
-            self.background = pygame.transform.smoothscale(background_raw, (game.WIDTH, game.HEIGHT))
+        if background_raw.get_width() != self.game.WIDTH or background_raw.get_height() != self.game.HEIGHT:
+            self.background = pygame.transform.smoothscale(background_raw, (self.game.WIDTH, self.game.HEIGHT))
         else:
             self.background = background_raw
 
@@ -248,8 +246,11 @@ class GameScreen(Screen):
         self._was_in_test_zone = inside_now
 
     def update(self, dt):
-        if self.pause_modal:
-            self.pause_modal.update(dt)
+        if self.pause_modal or self.settings_modal:
+            if self.settings_modal:
+                self.settings_modal.update(dt)
+            elif self.pause_modal:
+                self.pause_modal.update(dt)
             return
 
         # Timer
@@ -266,7 +267,7 @@ class GameScreen(Screen):
         self.all_sprites.update(dt, self.playable_area)
         self.constrain_player_movement()
 
-    # Circuit (animación interna)
+        # Circuit (animación interna)
         self.logic_circuit.update(dt)
 
         # Solve forzado
@@ -282,8 +283,7 @@ class GameScreen(Screen):
         # Cheese según estado del circuito (esto ya hace que la jaula se abra si circuit_complete=True)
         self.cheese.update(dt, self.playable_area, self.logic_circuit.is_complete)
 
-
-# Interacciones
+        # Interacciones
         self.handle_stone_interactions()
         self.handle_cheese_collection()
 
@@ -397,6 +397,8 @@ class GameScreen(Screen):
         # Pause modal
         if self.pause_modal:
             self.pause_modal.draw(self.screen)
+        if self.settings_modal:
+            self.settings_modal.draw(self.screen)
 
         # Solve al frente
         self.solve_button.draw(self.screen)
@@ -414,16 +416,21 @@ class GameScreen(Screen):
             self.screen.blit(text, (120, y_offset))
 
     def handle_event(self, event):
+        if self.settings_modal:
+            action = self.settings_modal.handle_event(event)
+            if action == "close":
+                self.settings_modal = None
+            return
+
         if self.pause_modal:
             action = self.pause_modal.handle_event(event)
             if action:
                 if action == "resume":
                     self.pause_modal = None
-                    # Mantener cursor visible al reanudar
                     pygame.mouse.set_visible(True)
                 elif action == "settings":
-                    from .settings_screen import SettingsScreen
-                    self.game.change_screen(SettingsScreen(self.game))
+                    # Open in-level settings modal (overlay)
+                    self.settings_modal = SettingsModal(self.game, self.game.WIDTH // 2, self.game.HEIGHT // 2)
                 elif action == "select_level":
                     from .level_selection_screen import LevelSelectionScreen
                     self.game.change_screen(LevelSelectionScreen(self.game))
@@ -445,6 +452,25 @@ class GameScreen(Screen):
 
         # Click “Solve” (fuera del pause)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Click on TEST zone: evaluate now and play success/fail SFX once
+            if self.test_zone_rect.collidepoint(event.pos):
+                try:
+                    is_complete, bits = evaluate_level(self.level, self.input_zones)
+                except Exception:
+                    weights = [z.get_total_weight() for z in self.input_zones]
+                    bits = [1 if w >= 1 else 0 for w in weights[:2]]
+                    is_complete = any(bits)
+                self.current_bits = bits
+                self.last_eval_complete = is_complete
+                self.logic_circuit.is_complete = self.last_eval_complete
+                self.has_tested = True
+                if getattr(self.game, "audio", None):
+                    if is_complete:
+                        self.game.audio.play_event_name("test_success", volume=1.0)
+                    else:
+                        self.game.audio.play_event_name("test_fail", volume=1.0)
+                return
+
             if self.solve_button.rect.collidepoint(event.pos):
                 if getattr(self.game, "audio", None):
                     self.game.audio.play_event_name("ui_click", volume=0.7)
