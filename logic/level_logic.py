@@ -87,7 +87,7 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         "circuit_bg": "circuit-3.png",
 
         # Piedras disponibles (① ② ① ① ② ④)
-        "stones": [1, 2, 1, 1, 2, 4],
+        "stones": [1, 2, 3, 1, 2, 4],
 
         # Tiempo para resolver (barra)
         "time_limit": 50.0
