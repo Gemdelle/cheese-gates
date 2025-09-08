@@ -10,20 +10,56 @@ Set-Location -Path $PSScriptRoot
 if (Test-Path build) { Remove-Item -Recurse -Force build }
 if (Test-Path dist) { Remove-Item -Recurse -Force dist }
 
-# Install deps into current environment
-if (Test-Path .\venv\Scripts\python.exe) {
+function Resolve-PythonPath {
+    # 1) Prefer local venv
+    if (Test-Path .\venv\Scripts\python.exe) { return (Resolve-Path .\venv\Scripts\python.exe).Path }
+    if (Test-Path .\.venv\Scripts\python.exe) { return (Resolve-Path .\.venv\Scripts\python.exe).Path }
+
+    # 2) Try Windows 'py' launcher with common versions
+    $py = Get-Command py -ErrorAction SilentlyContinue
+    if ($py) {
+        foreach ($v in @('3.13','3.12','3.11','3.10','3')) {
+            try {
+                $out = & $py.Path -$v -c "import sys;print(sys.executable)" 2>$null
+                if ($LASTEXITCODE -eq 0 -and $out) { return $out.Trim() }
+            } catch {}
+        }
+    }
+
+    # 3) Try python in PATH
+    $cmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Path }
+
+    # 4) where.exe fallback
+    try {
+        $where = & where.exe python 2>$null
+        if ($where) { return ($where -split "`r?`n")[0] }
+    } catch {}
+
+    return $null
+}
+
+$python = Resolve-PythonPath
+if (-not $python) {
+    Write-Host "No se encontró Python en este sistema. Para COMPILAR necesitas Python instalado (3.11+)." -ForegroundColor Yellow
+    Write-Host "Opciones:" -ForegroundColor Yellow
+    Write-Host "  1) Instala Python desde https://www.python.org/downloads/ y marca 'Add Python to PATH'." -ForegroundColor Yellow
+    Write-Host "  2) O usa el ejecutable ya construido en .\\dist\\CheeseGates.exe (no requiere Python)." -ForegroundColor Yellow
+    throw "Python no encontrado. Cancelando build."
+}
+
+# Crear venv si no existe aún (para builds reproducibles)
+if (-not (Test-Path .\venv\Scripts\python.exe)) {
+    Write-Host "Creando entorno virtual en .\\venv..."
+    & "$python" -m venv venv
     $python = (Resolve-Path .\venv\Scripts\python.exe).Path
-} elseif (Test-Path .\.venv\Scripts\python.exe) {
-    $python = (Resolve-Path .\.venv\Scripts\python.exe).Path
-} else {
-    $python = 'python'
 }
 
 Write-Host "Using Python: $python"
 
-# Pin installs if needed
-& $python -m pip install --upgrade pip
-& $python -m pip install -r requirements.txt
+# Instalar dependencias
+& "$python" -m pip install --upgrade pip
+& "$python" -m pip install -r requirements.txt
 
 # Collect data files (top-level images/fonts + assets and audio folders)
 # PyInstaller --add-data needs src;dest with ; on Windows
@@ -69,7 +105,7 @@ $iconArg = @()
 # $iconArg = @('--icon', 'icon.ico')
 
 # Build
-& $python -m PyInstaller `
+& "$python" -m PyInstaller `
     --noconfirm `
     --clean `
     --name "CheeseGates" `
