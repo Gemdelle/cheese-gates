@@ -119,6 +119,8 @@ class GameScreen(Screen):
         self.test_label_color = (100, 50, 0)
 
         self._was_in_test_zone = False
+        # Mouse hover over TEST zone state (to play SFX once on enter)
+        self._mouse_in_test_zone = False
 
         # ======= Resultado cacheado (SOLO tras testear) =======
         # Robustez ante niveles sin configurar: fallback a 2 inputs
@@ -262,6 +264,12 @@ class GameScreen(Screen):
             self.last_eval_complete = is_complete
             self.logic_circuit.is_complete = self.last_eval_complete
             self.has_tested = True   # <-- ahora SÍ podemos mostrar el resultado/bits
+            # Reproducir SFX según resultado al ENTRAR el personaje a la plataforma TEST
+            if getattr(self.game, "audio", None):
+                if is_complete:
+                    self.game.audio.play_event_name("test_success", volume=1.0)
+                else:
+                    self.game.audio.play_event_name("test_fail", volume=1.0)
 
         self._was_in_test_zone = inside_now
 
@@ -495,30 +503,19 @@ class GameScreen(Screen):
             elif event.key == pygame.K_SPACE:
                 self.handle_space_interaction()
 
+    # Ya no usamos hover/cursor para TEST; el disparo es con el personaje al entrar en la plataforma
+
         # Click “Solve” (fuera del pause)
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # Click on TEST zone: evaluate now and play success/fail SFX once
+            # Click en TEST: no hace nada (la evaluación sucede al pisar con el personaje)
             if self.test_zone_rect.collidepoint(event.pos):
-                try:
-                    is_complete, bits = evaluate_level(self.level, self.input_zones)
-                except Exception:
-                    weights = [z.get_total_weight() for z in self.input_zones]
-                    bits = [1 if w >= 1 else 0 for w in weights[:2]]
-                    is_complete = any(bits)
-                self.current_bits = bits
-                self.last_eval_complete = is_complete
-                self.logic_circuit.is_complete = self.last_eval_complete
-                self.has_tested = True
-                if getattr(self.game, "audio", None):
-                    if is_complete:
-                        self.game.audio.play_event_name("test_success", volume=1.0)
-                    else:
-                        self.game.audio.play_event_name("test_fail", volume=1.0)
                 return
 
             if self.solve_button.rect.collidepoint(event.pos):
                 if getattr(self.game, "audio", None):
+                    # Play a click and the win stinger before transitioning
                     self.game.audio.play_event_name("ui_click", volume=0.7)
+                    self.game.audio.play_event_name("win", volume=0.9)
                 self.force_solved = True
                 self.level_complete = True
                 from .win_screen import WinScreen
