@@ -1,12 +1,13 @@
 # entities/logic_circuit.py
 import pygame
+from typing import Optional
 
 class LogicCircuit:
     """
     Dibuja el fondo del circuito (opcional) dentro de un rect dado.
     NO muestra texto/estado: la evaluación se hace fuera (GameScreen al pisar TEST).
     """
-    def __init__(self, rect: pygame.Rect, circuit_bg_path: str | None = None):
+    def __init__(self, rect: pygame.Rect, circuit_bg_path: Optional[str] = None):
         self.rect = rect.copy()
         self.input_zones = []
         self.is_complete = False

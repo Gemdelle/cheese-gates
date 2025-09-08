@@ -1,107 +1,153 @@
 import math
 import pygame
 
-SPEED = 260.0  # px/s
-PLAYER_SIZE = (100, 105)  # (w, h) for both standing/moving sprites - 50% del tamaño original
+SPEED = 320.0  # px/s - Increased for more responsiveness
+PLAYER_SIZE = (100, 105)  # (w, h) scaled sprite size
+
+# Movement enhancements - More responsive values
+ACCELERATION = 2000.0  # px/s² - Much faster acceleration
+DECELERATION = 2800.0  # px/s² - Quick stopping
+DIAGONAL_SPEED_FACTOR = 0.707  # sqrt(2)/2 for proper diagonal movement
 
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
         super().__init__()
-        # Animation variables
-        self.animation_time = 0
+        # Animation state
+        self.animation_time = 0.0
         self.y_scale = 1.0
         self.moving_animation_scale_range = 0.1
         self.moving_animation_speed = 4.0
 
-        # Load base images (assumed to face RIGHT by default)
+        # Load and scale images
         standing = pygame.image.load("character-standing.png").convert_alpha()
         moving = pygame.image.load("character-moving.png").convert_alpha()
-
-        # Normalize size
         self.original_standing = pygame.transform.smoothscale(standing, PLAYER_SIZE)
         self.original_moving = pygame.transform.smoothscale(moving, PLAYER_SIZE)
 
-        # Start with standing pose
+        # Initial frame
         self.base_image = self.original_standing
         self.image = self.base_image
         self.rect = self.image.get_rect(center=pos)
 
+        # Enhanced kinematics
         self.pos = pygame.Vector2(pos)
+        self.velocity = pygame.Vector2(0, 0)  # Current velocity
+        self.target_velocity = pygame.Vector2(0, 0)  # Desired velocity
         self.last_dir = pygame.Vector2(1, 0)
+        
+        # Stable, rotation-independent hit radius
+        self.collision_radius = int(min(PLAYER_SIZE) * 0.4)
 
-        # If your art's default orientation isn't RIGHT, tweak this:
+        # Movement state tracking
+        self.was_moving = False
+        self.direction_change_time = 0.0
+        self.last_input_dir = pygame.Vector2(0, 0)
+
+        # Facing tweak if art base not RIGHT
         self.angle_offset_deg = 0
 
         # Stone interaction
         self.carried_stone = None
         self.interaction_radius = 30
 
-        # Este es el nivel de la piedrita (no esta terminado pero funciona)
-        self.carry_gap = 24            # lower than top of head (más baja al cargar)
-        self.carry_front_dist = 24     # forward along facing direction
-        self.carry_move_raise = 6      # raise a bit while moving
-        self.carry_move_side_shift = 8 # shift to player's left while moving
-        self.drop_y_offset = 16        # al soltar en el piso, caer un poco más abajo
+        # Carry offsets
+        self.carry_gap = 24
+        self.carry_front_dist = 24
+        self.carry_move_raise = 6
+        self.carry_move_side_shift = 8
+        self.drop_y_offset = 16
 
-        # Estado de movimiento (para audio)
+        # Movement flag (for audio)
         self.is_moving = False
 
     def handle_input(self):
+        """Enhanced input handling with better diagonal movement"""
         keys = pygame.key.get_pressed()
-        direction = pygame.Vector2(0, 0)
+        input_dir = pygame.Vector2(0, 0)
+        
+        # Gather input
         if keys[pygame.K_w] or keys[pygame.K_UP]:
-            direction.y -= 1
+            input_dir.y -= 1
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            direction.y += 1
+            input_dir.y += 1
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            direction.x -= 1
+            input_dir.x -= 1
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            direction.x += 1
-        return direction
+            input_dir.x += 1
+        
+        # Normalize diagonal movement to prevent speed boost
+        if input_dir.length_squared() > 0:
+            input_dir = input_dir.normalize()
+            
+        # Track direction changes for smoother transitions
+        if input_dir != self.last_input_dir:
+            self.direction_change_time = 0.0
+        self.last_input_dir = input_dir
+        
+        return input_dir
 
     def update(self, dt, bounds_rect):
-        direction = self.handle_input()
-        moved = direction.length_squared() > 0
-        self.is_moving = moved
-
-        if moved:
-            direction = direction.normalize()
-            self.last_dir = direction
-            self.pos += direction * SPEED * dt
-
-            # Update animation time and calculate Y scale
+        """Enhanced update with smooth acceleration/deceleration and better animation"""
+        input_direction = self.handle_input()
+        self.direction_change_time += dt
+        
+        # Calculate target velocity based on input
+        if input_direction.length_squared() > 0:
+            self.target_velocity = input_direction * SPEED
+            # Update facing direction only when actively moving
+            self.last_dir = input_direction
+        else:
+            self.target_velocity = pygame.Vector2(0, 0)
+        
+        # Smooth acceleration/deceleration
+        velocity_diff = self.target_velocity - self.velocity
+        
+        if velocity_diff.length_squared() > 0:
+            # Choose acceleration or deceleration
+            accel_rate = ACCELERATION if input_direction.length_squared() > 0 else DECELERATION
+            
+            # Apply acceleration with frame-rate independence
+            max_change = accel_rate * dt
+            if velocity_diff.length() <= max_change:
+                self.velocity = self.target_velocity
+            else:
+                self.velocity += velocity_diff.normalize() * max_change
+        
+        # Update position with smooth velocity
+        old_pos = self.pos.copy()
+        self.pos += self.velocity * dt
+        
+        # Enhanced movement state tracking
+        velocity_magnitude = self.velocity.length()
+        self.is_moving = velocity_magnitude > 20.0  # Higher threshold for cleaner state
+        
+        # Cleaner animation without wobble on stop
+        if self.is_moving:
             self.animation_time += dt
             self.y_scale = 1.0 + self.moving_animation_scale_range * math.sin(
                 self.animation_time * self.moving_animation_speed * 2 * math.pi
             )
         else:
-            # Reset animation when not moving
+            # Immediate stop - no wobble/tambaleo
             self.animation_time = 0.0
             self.y_scale = 1.0
 
-        # Switch base image depending on movement state
-        self.base_image = self.original_moving if moved else self.original_standing
+        # Instant image switching for cleaner feel
+        self.base_image = self.original_moving if self.is_moving else self.original_standing
+        self.was_moving = self.is_moving
 
-        # Keep on screen using current rotated frame size
-        half_w, half_h = self.rect.width / 2, self.rect.height / 2
-        self.pos.x = max(bounds_rect.left + half_w, min(self.pos.x, bounds_rect.right - half_w))
-        self.pos.y = max(bounds_rect.top + half_h, min(self.pos.y, bounds_rect.bottom - half_h))
-
-        # Si mira estrictamente a la izquierda (A), flip horizontal
+        # Enhanced orientation and rendering
         flip_only_left = (self.last_dir.x < 0) and (abs(self.last_dir.y) < 1e-6)
-
         frame = self.base_image
+        
         if flip_only_left:
-            # Flip horizontal sin rotación
             frame = pygame.transform.flip(frame, True, False)
-            # Escala vertical (squash & stretch)
             scaled = pygame.transform.smoothscale(
                 frame, (frame.get_width(), int(frame.get_height() * self.y_scale))
             )
             rotated = scaled
         else:
-            # Rotación normal según la dirección
             angle_deg = -math.degrees(math.atan2(self.last_dir.y, self.last_dir.x)) + self.angle_offset_deg
             scaled = pygame.transform.smoothscale(
                 frame, (frame.get_width(), int(frame.get_height() * self.y_scale))
@@ -113,34 +159,42 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=old_center)
         self.rect.center = (self.pos.x, self.pos.y)
 
-        # La piedrita al cargarse cambia de posicion:
+        # Enhanced carried stone physics
         if self.carried_stone is not None:
-            p_half_h = self.rect.height / 2
-            s_half_h = self.carried_stone.rect.height / 2
+            self._update_carried_stone_position()
 
-            base_x = self.pos.x
-            base_y = self.pos.y - p_half_h - s_half_h + self.carry_gap
-
-            fwd = self.last_dir
-            x = base_x + fwd.x * self.carry_front_dist
-            y = base_y + fwd.y * self.carry_front_dist
-
-            if moved:
-                y -= self.carry_move_raise
-                left_vec = pygame.Vector2(fwd.y, -fwd.x)
-                x += left_vec.x * self.carry_move_side_shift
-                y += left_vec.y * self.carry_move_side_shift
-
-            self.carried_stone.pos.x = x
-            self.carried_stone.pos.y = y
+    def _update_carried_stone_position(self):
+        """Smoother carried stone positioning"""
+        p_half_h = self.rect.height / 2
+        s_half_h = self.carried_stone.rect.height / 2
+        base_x = self.pos.x
+        base_y = self.pos.y - p_half_h - s_half_h + self.carry_gap
+        fwd = self.last_dir
+        
+        # Base position
+        x = base_x + fwd.x * self.carry_front_dist
+        y = base_y + fwd.y * self.carry_front_dist
+        
+        # Moving adjustments with velocity-based smoothing
+        if self.is_moving:
+            # Smooth carry adjustments based on velocity
+            velocity_factor = min(1.0, self.velocity.length() / SPEED)
+            y -= self.carry_move_raise * velocity_factor
+            
+            left_vec = pygame.Vector2(fwd.y, -fwd.x)
+            shift_amount = self.carry_move_side_shift * velocity_factor
+            x += left_vec.x * shift_amount
+            y += left_vec.y * shift_amount
+            
+        self.carried_stone.pos.x = x
+        self.carried_stone.pos.y = y
 
     def can_pickup_stone(self, stone):
         if self.carried_stone is not None:
             return False
         if stone.is_carried:
             return False
-        distance = pygame.Vector2(self.pos).distance_to(stone.pos)
-        return distance <= self.interaction_radius
+        return pygame.Vector2(self.pos).distance_to(stone.pos) <= self.interaction_radius
 
     def pickup_stone(self, stone):
         if self.can_pickup_stone(stone):

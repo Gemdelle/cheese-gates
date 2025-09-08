@@ -111,9 +111,20 @@ try {
 $addDataArgs = @()
 foreach ($d in $datas) { $addDataArgs += @('--add-data', $d) }
 
-# Optional: custom icon
+# Optional: custom icon (resolve relative to script root; skip if missing)
 $iconArg = @()
-if ($Icon) { $iconArg = @('--icon', $Icon) }
+if ($Icon) {
+    $iconPath = $Icon
+    if (-not [System.IO.Path]::IsPathRooted($iconPath)) {
+        $iconPath = Join-Path $PSScriptRoot $iconPath
+    }
+    if (Test-Path $iconPath) {
+        $iconArg = @('--icon', (Resolve-Path $iconPath).Path)
+    } else {
+        Write-Host "Icon not found: $iconPath — building without custom icon." -ForegroundColor Yellow
+        $iconArg = @()
+    }
+}
 
 # Bundle mode
 $bundleArg = @('--onefile')

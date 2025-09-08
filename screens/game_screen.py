@@ -98,6 +98,14 @@ class GameScreen(Screen):
         self.test_img_raw = pygame.image.load("platform.png").convert_alpha()
         self.test_img = pygame.transform.smoothscale(self.test_img_raw, self.test_zone_size)
 
+        # Animation variables for platform - Faster and more responsive
+        self.test_platform_scale = 1.0  # Current scale factor
+        self.test_platform_target_scale = 1.0  # Target scale
+        self.test_platform_velocity = 0.0  # Animation velocity for bounce
+        self.test_platform_spring_strength = 25.0  # Much higher for faster response
+        self.test_platform_damping = 0.75  # Lower damping for quicker animation
+        self.test_platform_expand_scale = 1.12  # Slightly more expansion for visibility
+
         # Texto
         self.test_label_font = pygame.font.Font("font/BlackCastleMF.ttf", 28)
         self.test_label_color = (100, 50, 0)
@@ -303,18 +311,58 @@ class GameScreen(Screen):
 
 
     def constrain_player_movement(self):
-        half_w, half_h = self.player.rect.width / 2, self.player.rect.height / 2
-        self.player.pos.x = max(self.playable_area.left + half_w,
-                                min(self.player.pos.x, self.playable_area.right - half_w))
-        self.player.pos.y = max(self.playable_area.top + half_h,
-                                min(self.player.pos.y, self.playable_area.bottom - half_h))
-        player_rect = pygame.Rect(self.player.pos.x - half_w, self.player.pos.y - half_h,
-                                  self.player.rect.width, self.player.rect.height)
-        if player_rect.colliderect(self.circuit_area):
-            if self.player.pos.x < self.circuit_area.centerx:
-                self.player.pos.x = self.circuit_area.left - half_w
-            else:
-                self.player.pos.x = self.circuit_area.right + half_w
+        """Enhanced constraint system that works smoothly with velocity-based movement"""
+        # Usar el radio de colisión estable del jugador
+        r = self.player.collision_radius
+        old_pos = self.player.pos.copy()
+        
+        # Clampear dentro del área jugable con mejor feedback
+        clamped_x = max(self.playable_area.left + r,
+                       min(self.player.pos.x, self.playable_area.right - r))
+        clamped_y = max(self.playable_area.top + r,
+                       min(self.player.pos.y, self.playable_area.bottom - r))
+        
+        # Si hubo clampeo, reducir velocidad suavemente para mantener fluidez
+        if clamped_x != self.player.pos.x:
+            self.player.velocity.x *= 0.3  # Less aggressive velocity reduction
+            self.player.pos.x = clamped_x
+            
+        if clamped_y != self.player.pos.y:
+            self.player.velocity.y *= 0.3  # Less aggressive velocity reduction
+            self.player.pos.y = clamped_y
+        
+        # Verificar colisión con el área del circuito usando el radio estable
+        circuit_collision_rect = pygame.Rect(
+            self.player.pos.x - r, self.player.pos.y - r, r * 2, r * 2
+        )
+        
+        if circuit_collision_rect.colliderect(self.circuit_area):
+            # Calcular distancias a cada borde del circuit_area para empuje inteligente
+            dist_left = abs(self.player.pos.x - self.circuit_area.left)
+            dist_right = abs(self.player.pos.x - self.circuit_area.right)
+            dist_top = abs(self.player.pos.y - self.circuit_area.top)
+            dist_bottom = abs(self.player.pos.y - self.circuit_area.bottom)
+            
+            # Encontrar la distancia mínima para empujar hacia el borde más cercano
+            min_dist = min(dist_left, dist_right, dist_top, dist_bottom)
+            
+            # Empujar y permitir movimiento más fluido
+            if min_dist == dist_left:
+                self.player.pos.x = self.circuit_area.left - r
+                if self.player.velocity.x > 0:  # Only reduce if moving into wall
+                    self.player.velocity.x *= 0.2
+            elif min_dist == dist_right:
+                self.player.pos.x = self.circuit_area.right + r
+                if self.player.velocity.x < 0:  # Only reduce if moving into wall
+                    self.player.velocity.x *= 0.2
+            elif min_dist == dist_top:
+                self.player.pos.y = self.circuit_area.top - r
+                if self.player.velocity.y > 0:  # Only reduce if moving into wall
+                    self.player.velocity.y *= 0.2
+            else:  # min_dist == dist_bottom
+                self.player.pos.y = self.circuit_area.bottom + r
+                if self.player.velocity.y < 0:  # Only reduce if moving into wall
+                    self.player.velocity.y *= 0.2
 
     def handle_stone_interactions(self):
         player_pos = self.player.pos
@@ -341,7 +389,9 @@ class GameScreen(Screen):
         inside_now = player_rect.colliderect(self.test_zone_rect)
 
         if inside_now and not self._was_in_test_zone:
-            # Entró recién → evaluar
+            # Entró recién → evaluar y expandir plataforma
+            self.test_platform_target_scale = self.test_platform_expand_scale
+            
             try:
                 is_complete, bits = evaluate_level(self.level, self.input_zones)
             except Exception:
@@ -359,8 +409,38 @@ class GameScreen(Screen):
                     self.game.audio.play_event_name("test_success", volume=1.0)
                 else:
                     self.game.audio.play_event_name("test_fail", volume=1.0)
+        
+        elif not inside_now and self._was_in_test_zone:
+            # Salió → contraer plataforma
+            self.test_platform_target_scale = 1.0
 
         self._was_in_test_zone = inside_now
+
+    def _update_test_platform_animation(self, dt):
+        """Fast and responsive spring-based animation for test platform"""
+        # More aggressive spring physics for faster response
+        scale_diff = self.test_platform_target_scale - self.test_platform_scale
+        
+        # Animate if there's any meaningful difference (lower threshold)
+        if abs(scale_diff) > 0.002:
+            spring_force = scale_diff * self.test_platform_spring_strength
+            self.test_platform_velocity += spring_force * dt
+            self.test_platform_velocity *= self.test_platform_damping
+            
+            # Update scale with velocity
+            self.test_platform_scale += self.test_platform_velocity * dt
+            
+            # More aggressive snapping for faster settling (higher thresholds)
+            if abs(scale_diff) < 0.01 and abs(self.test_platform_velocity) < 0.5:
+                self.test_platform_scale = self.test_platform_target_scale
+                self.test_platform_velocity = 0.0
+        else:
+            # Immediate snap for very small differences
+            self.test_platform_scale = self.test_platform_target_scale
+            self.test_platform_velocity = 0.0
+        
+        # Safety bounds
+        self.test_platform_scale = max(0.9, min(self.test_platform_scale, 1.2))
 
     def update(self, dt):
         if self.pause_modal or self.settings_modal:
@@ -389,6 +469,9 @@ class GameScreen(Screen):
 
         # Sprites
         self.all_sprites.update(dt, self.playable_area)
+
+        # Animate test platform with spring physics
+        self._update_test_platform_animation(dt)
 
         # Audio de caminar: iniciar/parar loop según movimiento
         try:
@@ -451,12 +534,26 @@ class GameScreen(Screen):
         # Circuit
         self.logic_circuit.draw(self.screen)
 
-        # ====== TEST zone con imagen (DEBAJO DEL PERSONAJE) ======
-        self.screen.blit(self.test_img, self.test_zone_rect.topleft)
+        # ====== TEST zone con imagen animada suave (DEBAJO DEL PERSONAJE) ======
+        # Calculate smoothly scaled size and position
+        original_size = self.test_zone_size
+        scaled_size = (
+            int(original_size[0] * self.test_platform_scale + 0.5),  # Round for pixel precision
+            int(original_size[1] * self.test_platform_scale + 0.5)
+        )
+        
+        # Scale the image (always create fresh to avoid cache issues)
+        scaled_test_img = pygame.transform.smoothscale(self.test_img_raw, scaled_size)
+        
+        # Center the scaled image on the original position
+        scaled_rect = scaled_test_img.get_rect(center=self.test_zone_rect.center)
+        
+        # Draw platform and label
+        self.screen.blit(scaled_test_img, scaled_rect.topleft)
         label = self.test_label_font.render("TEST", True, self.test_label_color)
         label_rect = label.get_rect(center=self.test_zone_rect.center)
         self.screen.blit(label, label_rect)
-        # =========================================================
+        # ===================================================================
 
         # Sprites (personaje y piedras) --> ENCIMA del botón TEST
         self.all_sprites.draw(self.screen)
