@@ -1,4 +1,8 @@
 import pygame
+try:
+    from audio.sound_manager import SoundManager
+except Exception:
+    SoundManager = None
 
 class Button:
     def __init__(self, x, y, width, height, text="", image=None, scale=1.0):
@@ -39,6 +43,13 @@ class Button:
                     new_height = int(self.original_rect.height * self.hover_scale)
                     self.image = pygame.transform.scale(self.original_image, (new_width, new_height))
                     self.rect = self.image.get_rect(center=self.original_rect.center)
+                # SFX de hover (una sola vez al entrar)
+                try:
+                    mgr = SoundManager.get() if SoundManager else None
+                    if mgr:
+                        mgr.play_event_name("ui_hover")
+                except Exception:
+                    pass
             else:
                 # Volver al tamaño original
                 if self.original_image:

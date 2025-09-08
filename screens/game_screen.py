@@ -477,5 +477,6 @@ class GameScreen(Screen):
                 if not stone.is_carried and self.player.can_pickup_stone(stone):
                     if self.player.pickup_stone(stone):
                         if getattr(self.game, "audio", None):
-                            self.game.audio.play_event_name("pickup", volume=0.8)
+                            # Play specific stone pickup sound asset (stone.mp3)
+                            self.game.audio.play_sfx("stone", volume=0.8)
                     break

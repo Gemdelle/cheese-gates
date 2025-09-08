@@ -98,8 +98,29 @@ class SettingsModal:
         save_settings(data)
 
     def update(self, dt):
-        # Nothing animated for now
-        pass
+        # Hover SFX for buttons (mode/close)
+        wx, wy = pygame.mouse.get_pos()
+        scale = getattr(self.game, "render_scale", 1.0) or 1.0
+        x_off, y_off = getattr(self.game, "render_offset", (0, 0))
+        if scale > 0:
+            lx = int((wx - x_off) / scale)
+            ly = int((wy - y_off) / scale)
+        else:
+            lx, ly = wx, wy
+        pos = (lx, ly)
+        # Track hover state
+        if not hasattr(self, "_hover_mode"):
+            self._hover_mode = False
+            self._hover_close = False
+        prev_mode = self._hover_mode
+        prev_close = self._hover_close
+        self._hover_mode = self.btn_mode_rect.collidepoint(pos)
+        self._hover_close = self.btn_close_rect.collidepoint(pos)
+        if getattr(self.game, "audio", None):
+            if self._hover_mode and not prev_mode:
+                self.game.audio.play_event_name("ui_hover")
+            if self._hover_close and not prev_close:
+                self.game.audio.play_event_name("ui_hover")
 
     def draw(self, screen):
         # Dim background

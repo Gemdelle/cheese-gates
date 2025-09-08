@@ -65,9 +65,19 @@ class WinScreen(Screen):
         pygame.mouse.set_visible(True)
 
     def update(self, dt):
-        # Igual actualizamos para hover del menú
-        self.next_level_btn.update(dt)
-        self.menu_button.update(dt)
+        # Actualizar usando coordenadas lógicas para que el hover funcione con el escalado
+        wx, wy = pygame.mouse.get_pos()
+        scale = getattr(self.game, "render_scale", 1.0) or 1.0
+        x_off, y_off = getattr(self.game, "render_offset", (0, 0))
+        if scale > 0:
+            lx = int((wx - x_off) / scale)
+            ly = int((wy - y_off) / scale)
+        else:
+            lx, ly = wx, wy
+        mouse_pos = (lx, ly)
+
+        self.next_level_btn.update(dt, mouse_pos)
+        self.menu_button.update(dt, mouse_pos)
 
     def draw(self):
         self.screen.blit(self.background, (0, 0))

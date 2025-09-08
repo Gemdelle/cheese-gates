@@ -1,7 +1,7 @@
 {
   "events": {
-  "ui_hover": { "files": ["Cloud Click"], "volume": 0.4 },
-  "ui_click": { "files": ["Cloud Click"], "volume": 0.8 },
+  "ui_hover": { "files": ["Cloud Click"], "volume": 0.1 },
+  "ui_click": { "files": ["Cloud Click"], "volume": 0.2 },
 
     "pickup":   { "files": ["pickup_1", "pickup_2"], "volume": 0.9 },
     "drop":     { "files": ["drop_1", "drop_2"],   "volume": 0.9 },
@@ -16,6 +16,7 @@
   },
 
   "music": {
+  "background":   { "file": "background",   "loop": true,  "volume": 0.1, "fade_in": 600 },
     "menu":         { "file": "menu",         "loop": true,  "volume": 0.7, "fade_in": 600 },
     "level_select": { "file": "level_select", "loop": true,  "volume": 0.7, "fade_in": 600 },
   "level":        { "file": "level",        "loop": true,  "volume": 0.05, "fade_in": 800 },
@@ -25,11 +26,11 @@
   },
 
   "scenes": {
-    "splash":        { "music": "menu" },
-    "menu":          { "music": "menu" },
-    "level_select":  { "music": "level_select" },
-    "level":         { "music": "level" },
-    "tutorial":      { "music": "tutorial" },
-  "settings":      { "music": "settings" }
+    "splash":        { "music": "background" },
+  "menu":          { "music": "background" },
+  "level_select":  { "music": "background" },
+  "level":         { "music": "level" },
+  "tutorial":      { "music": "background" },
+  "settings":      { "music": "background" }
   }
 }
