@@ -53,7 +53,7 @@ class LevelSelectionScreen(Screen):
 
         # ===== Tamaños por botón (W, H) — mantenemos los que ya venías usando =====
         row1_sizes = [(160, 120), (220, 210)]   # Niveles 1-2
-        row2_sizes = [(290, 240), (320, 260)]   # Niveles 3-4
+        row2_sizes = [(320, 240), (320, 260)]   # Niveles 3-4
         self.single_row_sizes = row1_sizes + row2_sizes  # 4 en una sola fila
 
         # ===== Layout en UNA SOLA FILA =====
