@@ -93,21 +93,35 @@ LEVELS: Dict[int, Dict[str, Any]] = {
         "time_limit": 60.0
     },
     4: {
+        # Inputs (de arriba hacia abajo)
         "inputs": [
-            {"threshold": 4, "invert": False},
-            {"threshold": 4, "invert": False},
-            {"threshold": 4, "invert": False},
+            {"threshold": 10, "invert": True},   # I0 -> NOT (debe quedar 0)
+            {"threshold": 8,  "invert": False},  # I1
+            {"threshold": 12, "invert": False},  # I2
+            {"threshold": 2,  "invert": True},   # I3 -> NOT
+            {"threshold": 3,  "invert": False},  # I4
         ],
+
+        # upper_and = AND(NOT I0, I1)
+        # mid_and   = AND(I2, NOT I3)
+        # bottom_or = OR(I4, OR(NOT I0, NOT I3))
+        # salida    = AND(upper_and, mid_and, bottom_or)  <-- 3 entradas
         "circuit": {
-            "op": "OR",
+            "op": "AND",
             "args": [
-                {"op": "AND", "args": [0, 1]},
-                {"op": "AND", "args": [1, 2]}
+                {"op": "AND", "args": [ {"op": "NOT", "args": [0]}, 1 ]},     # upper_and
+                {"op": "AND", "args": [ 2, {"op": "NOT", "args": [3]} ]},      # mid_and
+                {"op": "OR",
+                 "args": [
+                     4,
+                     {"op": "OR", "args": [ {"op": "NOT", "args": [0]}, {"op": "NOT", "args": [3]} ]}
+                 ]}                                                             # bottom_or
             ]
         },
+
         "circuit_bg": "circuit-4.png",
-        "stones": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        "time_limit": 60.0
+        "stones": [1, 7, 1, 9, 2, 2, 1, 5, 7],
+        "time_limit": 120.0
     },
 }
 
