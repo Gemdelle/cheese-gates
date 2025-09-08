@@ -430,7 +430,12 @@ class GameScreen(Screen):
                         self._walking_audio_on = False
                 except Exception:
                     pass
-            self.game.change_screen(WinScreen(self.game, level=self.level, bg_path="win-bg.png", max_level=4))
+
+            # 👇 Fondo especial al ganar el nivel 4
+            win_bg = "final-bg.png" if self.level == 4 else "win-bg.png"
+            self.game.change_screen(
+                WinScreen(self.game, level=self.level, bg_path=win_bg, max_level=4)
+            )
             return
 
         # TEST zone
