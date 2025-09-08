@@ -127,6 +127,9 @@ class GameScreen(Screen):
 
         # Cursor visible en el nivel
         pygame.mouse.set_visible(True)
+        
+    # Estado audio de pasos
+    self._walking_audio_on = False
 
     def setup_game_zones(self):
         self.playable_area = pygame.Rect(120, 170, 1680, 850)
@@ -379,6 +382,19 @@ class GameScreen(Screen):
 
         # Sprites
         self.all_sprites.update(dt, self.playable_area)
+
+        # Audio de caminar: iniciar/parar loop según movimiento
+        try:
+            if getattr(self.game, "audio", None):
+                moving = bool(getattr(self.player, "is_moving", False))
+                if moving and not self._walking_audio_on:
+                    self.game.audio.start_loop_sfx("walking", volume=0.5, fade_ms=120)
+                    self._walking_audio_on = True
+                elif not moving and self._walking_audio_on:
+                    self.game.audio.stop_loop_sfx("walking", fade_ms=150)
+                    self._walking_audio_on = False
+        except Exception:
+            pass
         self.constrain_player_movement()
 
         # Circuit (animación interna)
@@ -544,6 +560,13 @@ class GameScreen(Screen):
             if event.key == pygame.K_ESCAPE:
                 self.pause_modal = PauseModal(self.game, self.game.WIDTH // 2, self.game.HEIGHT // 2)
                 pygame.mouse.set_visible(True)
+                # Asegurar que pare el loop de pasos al pausar
+                try:
+                    if getattr(self.game, "audio", None):
+                        self.game.audio.stop_loop_sfx("walking", fade_ms=120)
+                        self._walking_audio_on = False
+                except Exception:
+                    pass
             elif event.key == pygame.K_SPACE:
                 self.handle_space_interaction()
 
@@ -557,7 +580,8 @@ class GameScreen(Screen):
                     break
             if self.player.drop_stone(drop_zone):
                 if getattr(self.game, "audio", None):
-                    self.game.audio.play_event_name("drop", volume=0.8)
+                    # Reproducir específicamente stone.mp3 al soltar
+                    self.game.audio.play_sfx("stone", volume=0.8)
         else:
             for stone in self.stones:
                 if not stone.is_carried and self.player.can_pickup_stone(stone):

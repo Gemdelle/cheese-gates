@@ -1,0 +1,19 @@
+Distribuir el juego (Windows)
+
+1) Generar el EXE:
+   - Ejecuta build_exe.ps1
+   - Salida: dist/CheeseGates.exe
+
+2) Empaquetar para compartir:
+   - Crea un ZIP con el contenido de dist/ (al menos CheeseGates.exe)
+   - Si usas onefile (como este caso), no necesitas DLLs extras.
+
+3) Configuración guardada:
+   - El archivo settings.json se guarda en:
+     - Windows: %APPDATA%\CheeseGates\settings.json
+     - Linux/macOS: ~/.cheese_gates/settings.json
+
+Notas:
+- SmartScreen puede bloquear: usa “Más información” > “Ejecutar de todas formas”.
+- Requisitos del sistema: Windows 10+ 64-bit.
+- Atajos: F11 alterna pantalla completa.

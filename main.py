@@ -1,8 +1,16 @@
 import sys
+import os
 from game import Game
 from screens.splash_screen import SplashScreen
 
 def main():
+    # Ajustar el directorio de trabajo cuando se ejecuta como EXE (PyInstaller onefile)
+    # para que las rutas relativas (imágenes, fuentes, etc.) funcionen.
+    try:
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            os.chdir(sys._MEIPASS)
+    except Exception:
+        pass
     # Filtrar a nivel de FD (C) la advertencia específica de libpng iCCP en stderr,
     # manteniendo visibles el resto de errores/avisos.
     def _install_libpng_warning_filter():
