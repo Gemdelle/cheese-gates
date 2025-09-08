@@ -127,9 +127,9 @@ class GameScreen(Screen):
 
         # Cursor visible en el nivel
         pygame.mouse.set_visible(True)
-        
-    # Estado audio de pasos
-    self._walking_audio_on = False
+
+        # Estado audio de pasos
+        self._walking_audio_on = False
 
     def setup_game_zones(self):
         self.playable_area = pygame.Rect(120, 170, 1680, 850)
@@ -377,6 +377,13 @@ class GameScreen(Screen):
         # Lose
         if self.time_left <= 0.0 and not self.level_complete:
             from .lose_screen import LoseScreen
+            # Stop walking loop if active
+            try:
+                if getattr(self.game, "audio", None) and getattr(self, "_walking_audio_on", False):
+                    self.game.audio.stop_loop_sfx("walking", fade_ms=120)
+                    self._walking_audio_on = False
+            except Exception:
+                pass
             self.game.change_screen(LoseScreen(self.game, level=self.level, bg_path="lose-bg.png"))
             return
 
@@ -416,6 +423,13 @@ class GameScreen(Screen):
             from .win_screen import WinScreen
             if getattr(self.game, "audio", None):
                 self.game.audio.play_event_name("win", volume=0.9)
+                # Stop walking loop if active
+                try:
+                    if getattr(self, "_walking_audio_on", False):
+                        self.game.audio.stop_loop_sfx("walking", fade_ms=120)
+                        self._walking_audio_on = False
+                except Exception:
+                    pass
             self.game.change_screen(WinScreen(self.game, level=self.level, bg_path="win-bg.png", max_level=4))
             return
 

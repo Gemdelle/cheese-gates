@@ -46,7 +46,9 @@ def main():
         except Exception:
             pass
 
-    _install_libpng_warning_filter()
+    # Instalar filtro de advertencia SOLO en builds congelados, para no interferir en desarrollo
+    if getattr(sys, 'frozen', False):
+        _install_libpng_warning_filter()
     game = Game()
     splash_screen = SplashScreen(game)
     game.change_screen(splash_screen)
