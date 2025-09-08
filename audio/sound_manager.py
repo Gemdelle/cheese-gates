@@ -107,6 +107,30 @@ class SoundManager:
 
     def set_sfx_enabled(self, enabled: bool):
         self.sfx_enabled = bool(enabled)
+        if not self.sfx_enabled:
+            # Stop all SFX immediately (does not affect music)
+            try:
+                # Fade out and clear looped SFX channels
+                for name, ch in list(self._loop_channels.items()):
+                    try:
+                        ch.fadeout(150)
+                    except Exception:
+                        try:
+                            ch.stop()
+                        except Exception:
+                            pass
+                self._loop_channels.clear()
+                # Stop any currently playing one-shot SFX channels
+                pygame.mixer.stop()
+            except Exception:
+                pass
+        else:
+            # Restore volumes on cached SFX so next plays have correct loudness
+            try:
+                for s in self._sfx.values():
+                    s.set_volume(self.sfx_volume * self.master_volume)
+            except Exception:
+                pass
 
     def set_master_volume(self, v: float):
         self.master_volume = max(0.0, min(1.0, v))

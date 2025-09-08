@@ -1,6 +1,7 @@
 {
-  "resolution": "1920x1080",
+  "resolution": "800x600",
   "window_mode": "Pantalla Completa",
-  "audio": "On",
-  "colorblind_mode": "Off"
+  "music": "On",
+  "sfx": "On",
+  "colorblind_mode": "On"
 }
